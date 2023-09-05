@@ -2,9 +2,10 @@
 2 REM TINY MERSENNE TWISTER
 3 REM By Zumstein Patrick
 4 REM Tested on PC-1403 by F Fumi 5/9/2023
-5 REM Copyright (c) 2011, 2013 Mutsuo Saito, Makoto Matsumoto,
-6 REM Hiroshima University and The University of Tokyo.
-7 REM All rights reserved.
+5 REM Original algorithm under copyright
+6 REM Copyright (c) 2011, 2013 Mutsuo Saito, Makoto Matsumoto,
+7 REM Hiroshima University and The University of Tokyo.
+8 REM All rights reserved.
 
 10 DIM mt(37)
 20 LET UPPERM = 128
