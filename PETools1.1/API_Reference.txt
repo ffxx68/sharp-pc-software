@@ -11,8 +11,13 @@ PETOOLS 1.1 is a set of machine language routines, which extends the possibiliti
 
 INSTALLATION
 
-Download the PETOOLS 1.1 installation program: peload.bas or peloadse.bas if you like to have the serial port extension (needs some extra hardware like the universal serial interface also described on this site).
-Transfer it to your PC-1403(H) and run it 1).
+Download the PETOOLS 1.1 installation program: 
+
+ PELOAD11.BAS or 
+ PELOADSE.BAS if you like to have the serial port extension (needs extra hardware like the universal serial interface also described on this site).
+ 
+Transfer it to your PC-1403(H) and run it.
+
 Follow the instructions on the display. Warning: During the installation process, all data will be deleted from your PC-1403(H).
 After a few minutes, the installation process is complete. Switch back to RUN-mode (The installation program leaves the PC-1403(H) in PRO-mode).
 To check your installation and see the possibilities of PETOOLS 1.1, download pedemo.bas , transfer it to your PC-1403(H) and run it.
