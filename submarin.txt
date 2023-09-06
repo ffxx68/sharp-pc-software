@@ -1,0 +1,11 @@
+        SUBMARIN.BAS
+        ============
+
+A submarine game. You are moving from right to left through seven different
+levels of caves. Navigate with the keys "2" (down) and "8" (up). Don't press
+other keys, this will lead to an error! This game was given to me from
+sebastian, a german chemistry engineer.
+
+Graphics        : **
+Sound           : *
+Libraries needed: none

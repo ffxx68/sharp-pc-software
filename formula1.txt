@@ -1,0 +1,8 @@
+        FORMULA1.BAS
+        ============
+
+Converted from a PC-1401 program written by Christof Sumereder. Hi, Gierke :-)
+
+Graphics        : **
+Sound           : **
+Libraries needed: none

@@ -1,0 +1,23 @@
+        DONKEY.BAS
+        ==========
+
+The original version of "Donkey-kong" for the Sharp PC-1500 was published in
+"Hebdogiciel" #86. This one was taken from http://www.pc1500.com and ported 
+for the use with the PC-1403(H).
+
+Start:
+With DEF K or RUN
+
+Keys:
+4 - left
+6 - right
+8 - up
+5 - jump 
+
+Game: 
+Jump over the barrels and climb the 10 levels... 
+Up there, beware of the gorilla!
+
+Graphics        : ***
+Sound           : **
+Libraries needed: PETOOLS 1.00
