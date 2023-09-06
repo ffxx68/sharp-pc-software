@@ -106,8 +106,9 @@
 24100 IF A=CS RETURN
 24110 PAUSE "Data Error: if you typed"
 24120 PAUSE "the Program, check for"
-24130 PAUSE "typo's, if you loaded"
-24140 WAIT:PRINT "it, try loading again."
+24130 PAUSE "typo's, if you loaded it"
+24135 PAUSE "try loading again."
+24140 WAIT:PRINT "A ";A;" CS ";CS
 24150 END
 24999 REM LOAD ML PROGRAM
 25000 WAIT 0:RESTORE 5000

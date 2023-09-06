@@ -1,0 +1,26 @@
+        GLOUPMAN.BAS
+        ============
+
+The original version of "Gloupman" for the Sharp PC-1500 was published in 
+"Hebdogiciel" #89 - june 28,1985 (Author: Marc Codin). This one was taken 
+from http://www.pc1500.com and ported for the use with the PC-1403(H).
+
+Start:
+With DEF A or RUN
+
+Keys:
+I/P - left/right
+Q/Z - up/down
+
+Game :
+Turned into a pacman, you must eat the "*"s and avoid ghosts. The PC-1403 
+displays the following informations: map of the current labyrinth, your 
+position (=row) in the labyrinth (arrow), detail of the line where you are
+in the labyrinth. There is one ghost per row, and it goes through the walls.
+You can trick the ghosts using the tunnels. There are 2 tunnels in 
+labys #1 and 4, 1 tunnel in laby #2, no tunnel in laby #3. You win 1 life
+for each completed level.
+
+Graphics        : **
+Sound           : **
+Libraries needed: PETOOLS 1.00

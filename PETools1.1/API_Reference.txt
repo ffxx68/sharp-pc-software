@@ -4,6 +4,7 @@ By Edgar Pue
 https://edgar-pue.tripod.com/sharp/files/pc1403/petools11/petools.html
 last modified: 01.10.2002
 
+
 INTRODUCTION
 
 PETOOLS 1.1 is a set of machine language routines, which extends the possibilities of your sharp in graphics, sound and other functions. It comes with a GPL and without warranty of any kind. With PETOOLS 1.1 it is possible, to write powerful basic programs easier. It is also easier, to port programs from the PC-1500 to use them with the PC-1403(H).
@@ -14,18 +15,35 @@ INSTALLATION
 Download the PETOOLS 1.1 installation program: 
 
  PELOAD11.BAS or 
- PELOADSE.BAS if you like to have the serial port extension (needs extra hardware like the universal serial interface also described on this site).
+ PELOADSE.BAS if you like to have the serial port extension (needs extra hardware like the universal serial interface also described on this site), or
+ PELOAD10.BAS for the 1.0 version (missing some features; see below)
  
 Transfer it to your PC-1403(H) and run it.
+You can install PETOOLS 1.1 without check of data integrity by typing "NOCHK" and DEF-S. This is faster, but more insecure.
 
 Follow the instructions on the display. Warning: During the installation process, all data will be deleted from your PC-1403(H).
 After a few minutes, the installation process is complete. Switch back to RUN-mode (The installation program leaves the PC-1403(H) in PRO-mode).
-To check your installation and see the possibilities of PETOOLS 1.1, download pedemo.bas , transfer it to your PC-1403(H) and run it.
+To check your installation and see the possibilities of PETOOLS 1.1, download 
+
+ PEDEMO11.BAS (or PEDEMO10.BAS)
+
+transfer it to your PC-1403(H) and run it.
 
 
 MEMORY EXTENSION
 
 The PETOOLS 1.1 are located in the basic memory starting at 32816. I have not figured out the exact memory extension yet (about 1500 byte), but if I do this now, I will possibly never publish this stuff ...
+
+
+WHAT'S NEW IN 1.1 (COMPARED TO 1.0)
+
+The BREAK key is respected more frequently in operations that need time
+Possibility to ensure the type of standard variables (number, string) without getting an error (INITS, INITN)
+Mixing text and graphics is possible flicker-free now (important for games)
+Non-blocking read of the keyboard with evaluation of all keys except BREAK
+RS 232 support (optional) with 4800 baud. Upload and download of files is more than 10 times faster compared to the tape interface (and silent ...)
+Remote operation of upload and download possible (with a standard terminal program)
+
 
 BUILDING PETOOLS 1.1
 
@@ -43,10 +61,13 @@ M2CAL
 Read the standard variable M and store it into the CAL-mode memory. This is done by a CALL 32839. Caution: If the content of M is a string (if M$ was used), the behaviour of this routine is not defined.
 FLASH
 Flashes the display. Using CALL 32862 will flash the display with the default number of times (11 times). Using POKE 32859,n:CALL 32858 will flash the display n+1 times. Since Version 1.1, FLASH respects the BRK-key.
+
 GCURSOR
 Poke the graphics cursor position to address 32964, e.g. POKE 32964,10 will set the graphics cursor to column 10 (first column of the third character field). The graphics cursor position is used by the GPRINT command, the valid range is [0 .. 119].
+
 POINT
 Returns the bitmap of the specified display location (column). Poke the column number to address 32972 (valid range is [0 .. 119]), then perform a CALL 32971. PEEK 32965 returns the bitmap of the column.
+
 RENEW
 In case of an accidental NEW-command just type CALL 33000, and you will get your programs back. If you want to undo a ALL RESET, you have to do some precautions before the ALL RESET-button is pressed. Type PEEK &FF01 and PEEK &FF02 and write the resulting numbers at the inside of your sliding top - so you will have them always handy (When using PETOOLS 1.1 the values should be 128 and 48 on a 1403H or 224 and 48 on a 1403). In case of an accidental ALL RESET just type
 
