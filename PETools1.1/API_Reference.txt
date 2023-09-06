@@ -1,0 +1,260 @@
+PETOOLS 1.1 API reference
+
+By Edgar Pue
+https://edgar-pue.tripod.com/sharp/files/pc1403/petools11/petools.html
+last modified: 01.10.2002
+
+INTRODUCTION
+
+PETOOLS 1.1 is a set of machine language routines, which extends the possibilities of your sharp in graphics, sound and other functions. It comes with a GPL and without warranty of any kind. With PETOOLS 1.1 it is possible, to write powerful basic programs easier. It is also easier, to port programs from the PC-1500 to use them with the PC-1403(H).
+
+
+INSTALLATION
+
+Download the PETOOLS 1.1 installation program: peload.bas or peloadse.bas if you like to have the serial port extension (needs some extra hardware like the universal serial interface also described on this site).
+Transfer it to your PC-1403(H) and run it 1).
+Follow the instructions on the display. Warning: During the installation process, all data will be deleted from your PC-1403(H).
+After a few minutes, the installation process is complete. Switch back to RUN-mode (The installation program leaves the PC-1403(H) in PRO-mode).
+To check your installation and see the possibilities of PETOOLS 1.1, download pedemo.bas , transfer it to your PC-1403(H) and run it.
+
+
+MEMORY EXTENSION
+
+The PETOOLS 1.1 are located in the basic memory starting at 32816. I have not figured out the exact memory extension yet (about 1500 byte), but if I do this now, I will possibly never publish this stuff ...
+
+BUILDING PETOOLS 1.1
+
+To build PETOOLS 1.1, I have used a modified version of YASM, which I haven't published yet. 
+You can use PockASM from www.aldweb.com, if you replace the "$" with "&" and force PockASM to use absolute addressing; also the basic loader must be modified in this case. A detailed building description will follow (maybe ...).
+Source code and make script is found in the /source sub-dir.
+
+
+API REFERENCE
+
+CAL2M
+Read the CAL-mode memory and store it into standard variable M. This is done by a CALL 32820.
+
+M2CAL
+Read the standard variable M and store it into the CAL-mode memory. This is done by a CALL 32839. Caution: If the content of M is a string (if M$ was used), the behaviour of this routine is not defined.
+FLASH
+Flashes the display. Using CALL 32862 will flash the display with the default number of times (11 times). Using POKE 32859,n:CALL 32858 will flash the display n+1 times. Since Version 1.1, FLASH respects the BRK-key.
+GCURSOR
+Poke the graphics cursor position to address 32964, e.g. POKE 32964,10 will set the graphics cursor to column 10 (first column of the third character field). The graphics cursor position is used by the GPRINT command, the valid range is [0 .. 119].
+POINT
+Returns the bitmap of the specified display location (column). Poke the column number to address 32972 (valid range is [0 .. 119]), then perform a CALL 32971. PEEK 32965 returns the bitmap of the column.
+RENEW
+In case of an accidental NEW-command just type CALL 33000, and you will get your programs back. If you want to undo a ALL RESET, you have to do some precautions before the ALL RESET-button is pressed. Type PEEK &FF01 and PEEK &FF02 and write the resulting numbers at the inside of your sliding top - so you will have them always handy (When using PETOOLS 1.1 the values should be 128 and 48 on a 1403H or 224 and 48 on a 1403). In case of an accidental ALL RESET just type
+
+POKE &FF01,Value1,Value2
+CALL 33000
+
+and you will get your programs back.
+
+Note: If the first line number of your program was greater than 255, it will be clipped to old_linenumber AND 255, because the first byte of the program (the high byte of the first line number) can't be restored (set to &FF by the sharp firmware).
+
+GPRINT
+Hints (for all GPRINT-calls):
+Set the desired bitblt mode first (GMODE).
+Perform a CALL &4B8 before using GPRINT; this will turn the display on.
+For people who want to port 1500 games for the 1403:
+The 1500 is able to display 26 characters, the 1403 only 24.
+The 1500 has a 6*7 dot matrix for one character (the last column is always blank), the 1403 has a 5*7 dot matrix and (hardware-) spaces every 5 columns. This means, that the 1500 has 156 graphics columns, the 1403 only 120.
+The 1403 produces some nasty side effects at the right end of the display while graphics operations.
+The 1403 erases the display before performing a PRINT command. Use GTEXT instead.
+On a 1500 CURSOR 10 and GCURSOR 10*6 would set the graphics cursor on the same position. On a 1403 you have to set the graphics cursor in steps of 5 to get the beginning of a character.
+Single Column
+Poke the desired pattern to address 33037, then perform a CALL 33036. This will draw the pattern to the current graphics cursor position. The graphics cursor position will be increased after that.
+Standard Variable (String, max. three Columns)
+First, poke the number of the standard variable you want to use ("A$" is 1, "B$" is 2, and so on ...) to address 33081, e.g.
+POKE 33081,26:REM Use Z$
+
+will use the standard variable "Z$" for the following GPRINT-call. Then, assign a string constant containing the hexadecimal values for the pattern to display, e.g.
+
+ Z$="7F417F"
+
+The GPRINT-call is done with
+
+CALL 33078
+
+Note: GPRINT with standard variables is faster than using single columns. If you're using a numeric variable, the result (the displayed pattern) will be undefined.
+
+Field Variable (String, max. 40 Columns)
+To use this function, you must know the address of the field variable first. This can be done like shown in the following code example:
+BA=0:DIM BS$(0)*10
+BA=256*PEEK 65288+PEEK 65287
+
+The first line fixes the dimension of the field variable. The second line determines the address of the field variable and stores it into BA. Why is BA set to zero in the first line? If you would not do this and the variable BA would be used the first time at this point, then the memory for the variable would be allocated here and this would make the result of the peeks incorrect. After determining the address of the field variable assign a string constant containing the hexadecimal values for the pattern to display, e.g.
+
+BS$(0)="1C3E3E3614"
+
+After this, set the address of the field for the following GPRINT-call:
+
+POKE 33105,BA-INT(BA/256)*256,INT(BA/256)
+
+The GPRINT-call is done with
+
+CALL 33107
+
+Note: GPRINT with field variables is the fastest graphics output routine, because you can draw max. 40 columns with one call.
+
+GMODE
+Switches the bitblt mode. There are four call addresses:
+CALL 33238: replace mode
+CALL 33252: paint (or) mode
+CALL 33270: invert (xor) mode
+CALL 33288: mask (and) mode
+The graphics cursor position (GCURSOR) is set to zero, also the fill pattern used by GFILL and GPRINT (Single Column). The fill range is set to the full range (From 0 to 120). Warning: There is no default for GMODE (e.g. on calling RUN or CLEAR), so it's always a god idea to call GMODE once at the start of a program.
+
+GFILL
+Fills a range with a given pattern using the current bitblt mode. There are four addresses:
+32965: The address where you poke the fill pattern.
+32966: The address where you poke the start of the range (Valid from 0 to 119).
+32967: The address where you poke the end of the range (Valid from 1 to 120).
+33330: The address to call for executing the function.
+The graphics cursor position is set to the end of the range after execution. Example:
+POKE 32965,&41,30,100:CALL 33330
+
+This draws two lines from the 6. character position to the 20. character position (not included). GFILL is very powerful, you can fill, erase or invert the screen or parts of it or you can draw rectangles very fast.
+
+SCROLLCLEAR
+Clears the display by scrolling it up or down. There are four call addresses:
+CALL 33363: Scroll the display up.
+CALL 33369: Scroll the left half of the display up, the right half down.
+CALL 33375: Scroll the left half of the display down, the right half up.
+CALL 33381: Scroll the display down.
+BEEP
+Creates a beep with variable duration and frequency. Example:
+10 POKE 33448,INT A-256*INT (A/256),(A/256)
+20 POKE 33450,B
+30 CALL 33452
+
+The variable A varies the frequency, the valid range is [0..1019]. The variable B varies the duration, the valid range of it is [0..255]. You can use the following equation to calculate the frequency:
+
+f = fClock / (A + 51)    [Hz]
+
+The clock frequency of my 1403H is 249900 Hz with batteries of medium quality. The maximum frequency (A = 0) with this clock frequency is 4900 Hz, the minimum frequency (A = 1019) is 234 Hz. To convert programs from a 1500 use the following equation:
+
+A1403 = INT (A1500 * 4.437138 - 19.81)
+
+Caution: The full frequency range of the 1500 isn't covered by this command (Valid range: [5 .. 234], this are more than 4 octaves).
+
+The duration is
+
+d = B * = 0.002    [s]
+
+Note that the duration gets a little bit inaccurate when using low frequencies. This is because the inner loop of the ML algorithm last longer than a timer tick (2 ms).
+
+Example:
+
+10 POKE 33448,3,200,8:CALL 33452:POKE 33448,0,200,4:CALL 33452
+
+Gives a nice little BEEP, which isn't so annoying as the original BASIC BEEP.
+
+BEEP ON/OFF
+The beep routine can be turned to silent mode (same duration, no sound output) by using CALL 33672. You can turn the sound output on by using CALL 33662. Warning: There is no default for BEEP ON/OFF (e.g. on calling RUN or CLEAR), so it's always a god idea to turn BEEP ON or OFF once at the start of a program.
+
+GTEXT
+This routine writes a text from a standard variable to the graphics cursor position without erasing the display first. The used GMODE is respected. The graphics cursor position will be increased after that. It is possible to write text, which is not aligned to the 5*7 pixel display blocks, but this doesn't look very good. Usage: First, poke the number of the standard variable you want to initialise ("A$" is 1, "B$" is 2, and so on ...) to address 33740, e.g.
+POKE 33740,26:REM Use Z$
+
+will use the standard variable "Z$" for the following GTEXT-call. The GTEXT-call is done with
+
+CALL 33737
+
+Caution: If the content of the standard variable is a string (e.g. if A was used instead of A$), the behaviour of this routine is not defined.
+
+GWAIT
+Turns the display on and waits on ENTER key or delays program execution like set with the BASIC WAIT command. The GWAIT-call is done with
+CALL 33935
+
+INITS
+Checks if a standard variable is of string type and initalises it with the blank string ("") otherwise. Usage: First, poke the number of the standard variable you want to initialise ("A$" is 1, "B$" is 2, and so on ...) to address 33696, e.g.
+POKE 33696,26:REM Use Z$
+
+will use the standard variable "Z$" for the following INITS-call. The INITS-call is done with
+
+CALL 33693
+
+INITN
+Checks if a standard variable is of numeric type and initalizes it with zero otherwise. Usage: First, poke the number of the standard variable you want to initialize ("A" is 1, "B" is 2, and so on ...) to address 33712, e.g.
+POKE 33712,26:REM Use Z
+
+will use the standard variable "Z" for the following INITN-call. The INITN-call is done with
+
+CALL 33709
+
+KEYCODE
+Call address: CALL 33840
+
+Reads the key code off the whole keyboard (except the BRK key) like the system calls CALLl &1494 and CALL &14BF. The difference is, that the control is returned to the calling program, if there is no key pressed. PEEK 65374 returns the key code or &FF, if no key was pressed. The keys are assigned to the following key codes:
+
+SAVAIL
+Call address: PEEK &84CF
+
+Serial extension availability flag. If 0 -> serial port extension not available. If 1 -> serial port extension available.
+
+REMOTE
+Call address: CALL 34000
+
+Starts the serial remote mode. A prompt is displayed one a connected terminal. Supported commands are:
+
+L - Load a file
+M - Merge a file
+S - Save a file
+Q - Quit
+V - Show version
+If the serial port extension is not installed, this procedure simply does nothing. Side effects of this procedure:
+
+GMODE "replace" is called
+Standard variable M is used
+SPRINT
+Call address: CALL &84D4
+
+Prints the print text buffer to the serial port. If the serial port extension is not installed, this procedure simply does nothing.
+
+SPRNTN
+Call address: CALL &84D8
+
+Prints the print text buffer to the serial port; after this, a lf or a cr-lf is sent. Which line end character is used depends on the setting of function CRLF. If the serial port extension is not installed, this procedure simply does nothing.
+
+CRLF
+Call address: CALL &84DC
+
+Prints a lf or a cr-lf to the serial port. If you want to use lf: Poke $0A to address CRLF+1. If you want to use cr-lf: Poke $0D to address CRLF+1. If the serial port extension is not installed, this procedure simply does nothing.
+
+CTRLZ
+Call address: CALL &84E0
+
+Prints a Ctrl-Z to the serial port. If the serial port extension is not installed, this procedure simply does nothing.
+
+SINPUT
+Call address: CALL &84E4
+
+Reads from serial port and stores the result into the least referenced field variable. If the serial port extension is not installed, this procedure simply does nothing.
+
+LLIST
+Call address: CALL &84E8
+
+List the stores program to the serial port. The basic tokens are NOT replaced by their ASCII representation, this must be done on the host system (personal computer).
+
+SLOAD
+Call address: CALL $84EC
+
+Reads a basic listing from the serial port and stores it into the RAM. An existing program is replaced. Note: The tokens must be encoded on the host system. There is no length checking.
+
+SMERGE
+Call address: CALL $84F0
+
+Reads a basic listing from the serial port and stores it into the RAM. The program is merged to the existing program. Note: The tokens must be encoded on the host system. There is no length checking, also there is no check for overlapping line numbers.
+
+DEFAULT WAIT
+A default wait interval for the BASIC WAIT may be peeked from address 32968. It's a good idea to do the following at the start of your PETOOLS application:
+
+10 W=PEEK 32968:WAIT W
+
+The default wait interval is 60.
+
+A setup application may adjust the default wait interval with e.g.
+
+POKE 32968,10
+
