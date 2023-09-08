@@ -1,7 +1,8 @@
 PETOOLS 1.1 API reference
 
 By Edgar Pue
-https://edgar-pue.tripod.com/sharp/files/pc1403/petools11/petools.html
+https://edgar-pue.tripod.com/sharp/petools11.html
+
 last modified: 01.10.2002
 
 
