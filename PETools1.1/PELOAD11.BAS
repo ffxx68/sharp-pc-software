@@ -58,13 +58,8 @@
 20120 GOSUB 26000:REM MOVE POINTERS AND MAKE A NEW
 20130 END
 20999 REM INTRO
-21000 PAUSE "This program will in-"
-21010 PAUSE "stall PETOOLS ";V$;" on"
-21020 PAUSE "your pocket computer."
-21030 PAUSE "Caution: This procedure"
-21040 PAUSE "will clear all memory"
-21050 PAUSE "of your pocket computer"
-21060 INPUT "Continue ? ";D$
+21000 PAUSE "Installing PETOOLS ";V$;"..."
+21060 INPUT "Clear Memory ? ";D$
 21070 D$=LEFT$(D$,1):IF D$="Y" OR D$="y" RETURN
 21080 IF D$="N" OR D$="n" END
 21090 GOTO 21060
