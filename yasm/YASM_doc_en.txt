@@ -1,0 +1,212 @@
+Yagshi's SC61860 Assembler "YASM61860"
+
+■■ Welcome! To the world where high-tech and low-tech intersect! ■■
+
+What you now have in your hands is the ability to use modern, super powerful calculators.
+A development environment for ancient computers. Convenient Tokyo Bay Aqua Line
+From Kawasaki to Kisarazu rowing with oars on a super luxury passenger boat chartered by Yokomen
+Please enjoy the feeling of enjoying elegant cruising.
+
+See also:
+
+https://www.oit.ac.jp/rd/labs/kobayashi-lab/~yagshi/old_web/misc/pocketcom/yasm-e.html
+https://github.com/utz82/SC61860-Instruction-Set
+
+//
+// 0. Overview
+//
+
+YASM61860 (hereinafter referred to as YASM) is installed in the old Sharp Pokoken.
+This is an assembler for 8bit CPU SC61860. Features include:
+
+☆ Written in perl so can run on many platforms
+☆ Output a machine language dump list instead of an object file!
+☆ CLOADM compliant wav files can be output! !
+
+//
+// 1. How to use
+//
+
+First of all, you will need perl ver.5 or later (probably). How to use YASM
+Basically
+
+perl yasm.pl [source]
+
+In the case of sh, csh type shells, add execution attributes and directly run
+
+yasm.pl [source]
+
+(The first line of yasm.pl should be changed according to your environment.
+Please edit. ) 
+
+[source] I want to assemble with this assembler
+An assembly language source file with a file name of .s or .asm
+Must be finished. If not specified, read from standard input.
+will be included. When the two-pass assembly is finished, unless otherwise specified,
+Outputs a dump list (!) to standard output. (Check every 8 bytes
+Displays up to Sam. Well, it's a lot of things!)
+
+If you want to explicitly specify the output file, etc., please use a switch.
+The format is
+
+yasm [switches] [source]
+
+(In the current version, [switches] and [source] are
+there is no limit. ) The following switches can be used.
+
+[switches]
+
+   -d dumplist Save the dump list to the file specified by dumplist.
+                Output. If omitted, output is to standard output.
+   -w wavfile Adds CLOADM to the file specified by wavfile.
+                Output wav file. No output is provided if omitted.
+   -old This is a switch for older models such as PC-1245/125x. wav
+                Affects only when generating files.
+
+example)
+     yasm.pl -d dump.txt -w csavem.wav source.s
+
+
+//
+// 2. YASM Assembly Language Manual
+//
+
+2.1 Basic structure
+
+Basically, use Sharp compliant (?) assembly language. line by line
+Please write the command. The group is
+
+Label: mnemonic operand #comment
+
+It consists of four parts, each part separated by one or more [TAB] or spaces.
+must be separated. Each can be omitted, but the order is as follows:
+Must be. I will explain each one.
+
+---- Label ----
+Any string of letters and numbers. uppercase and lowercase letters
+distinguish. Write the definition at the beginning of the line and add a : (colon) immediately after it.
+This is done using the equ directive, which will be explained later.
+
+---- Mnemonic ----
+I made it after looking at Kogakusha's ``Introduction to Pocket Computer Machine Language'', so basically
+Follow it. It doesn't matter whether it's uppercase or lowercase. undefined instruction
+(Hidden commands) are also partially supported.
+
+---- operand ----
+Four arithmetic operations, parentheses, logical product (&), logical sum (|), exclusive logical sum (^),
+You can use calculation formulas using shift operators (<<,>>). The priority is
+It is together with the C processing system. Things that can be used as literals are decimal constants,
+Hexadecimal constants (starts with $ and is not case sensitive), labels,
+Character (column) constant. A character (column) constant is any string enclosed in ',
+For example, for 'abc', $616263 = 6382179.
+You can use \ (backslash) as an escape.
+The byte order is big endian (SC61860 type is Motorola style).
+
+Example) -$Abc + 100*(label-'\'')/ 'str\\' & $f000 >> 8
+
+---- comment ----
+Anything from # or ; to the end of the line is ignored as a comment. string constant
+If you want to use these characters inside, be sure to prefix them with \.
+
+
+
+2.2 Grammar Notes
+
+Operand of jump command (JR* JP* LOOP) is "address to jump to"
+Please write. In the case of relative jumps, instead of writing the relative value,
+This is the address you want to fly to. (Of course, a label is fine.)
+
+I couldn't think of a nice way to write the case instruction (or sett/jst instruction)
+Therefore, write the operand using the db or dw pseudo-instruction.
+
+
+2.3 Directives
+
+The pseudo-instructions implemented in this version are explained in order.
+
+---- org ----
+Defines the address of that location in the assembly language source.
+Cannot be labeled.
+
+example)
+org $5000 # $5000 address from here
+VRAM: org $2000 # error
+
+
+---- equ ----
+Set the value on the label. Even if you add :(colon) to the label
+You don't have to wear it.
+
+example)
+VRAM1: EQU $2000 # Even if there is a colon
+VRAM2 equ VRAM+$40 # Can be omitted
+
+
+---- db ----
+Arrange the byte sequence. Continuously by separating with ,(comma)
+It can be arranged.
+
+example)
+db 'H','e','l','l','o',',',$0c,$0d
+
+
+---- dw ----
+Arranges a word (=2 byte) column. Part-time order is big
+It's endian.
+
+example)
+dw 'Wo','rl','d!',$0c0d,0
+
+
+---- ds ----
+Arranges any number of arbitrary 1 bytes consecutively. The format is
+ds number of bytes [,data]. Data is optional; if omitted,
+It is assumed to be 0.
+
+example)
+ds 10,$ff # fill 10 bytes with $ff
+ds 20 # fill 20 bytes with 0
+
+
+
+
+//
+// 3. And many other things
+//
+
+The guy who somehow made it is an assembler for SC61860. Now (June 1998)
+I wondered who would use it, but I guess it's fine. why did you make it
+That's because I happened to get the PC-1262.
+
+The biggest selling point of this assembler is the wav file generation.
+It's probably a function. If you don't have a cassette I/F, please give it a try.
+please look. In order to implement this feature, we used the "Pocket Computer Machine Language"
+I looked at ``Introduction'', but I was troubled by the lack of information. In the end at O2
+I recorded it and analyzed it using a waveform editor. It took a lot of effort
+is.
+
+If the program address is divided, the output wav file
+The file is undefined from the lowest address to the highest address of the program.
+The area will be filled with 00.
+
+If you find any bugs, please send us a bug report. that time,
+I would appreciate it if you could also attach the source where the problem occurred.
+
+To write scripts larger than 1kb in perl, use an assembler.
+This is my first experience, so I think there are some things I'm lacking in.
+If you have any questions, please feel free to email me.
+I'm happy.
+
+
+----
+Please send any opinions, requests, bug reports, complaints, etc. below.
+
+     mailto: yagshi@ugsf.info
+----
+
+■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+Well, you're halfway ready for your journey back to the good old days. later
+All you have to do is dig out the Pokécom from the closet and buy the CR-2032.
+If you have one, we also have the ``Cassette Interface CE-124'' available.
+Please. May SC61860 be with you!
+■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■

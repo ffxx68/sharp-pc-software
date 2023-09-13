@@ -1,0 +1,14 @@
+このアーカイブに含まれるファイルは以下のとおりです。
+
+yasm.pl       YASM61860 本体の perl スクリプト
+YASM.doc      マニュアル等メインドキュメント
+CHANGES.txt   バージョン履歴
+FILES.txt     このファイル
+
+
+以下は EXAMPLES ディレクトリの中
+EXAMPLES.txt  例題プログラムの説明
+mon45.s       PC-1245 ようモニタ、yagmon1245 ソース
+mon45.doc     yagmon1245 のドキュメント
+scroll.s      PC-1262 ようサンプル(画面スクロール)
+scroll45.s    PC-1245/125x ようサンプル(画面スクロール)
