@@ -1,0 +1,143 @@
+This document contains the assembler commands and allowed parameters for pasm v1.0
+
+Version note:
+-------------
+pasm v1.0 is not very stable with errors in parameters.
+This could result in NOPs in the code where errors occurred!
+
+
+Error notification:
+-------------------
+pasm halts at the first error found and outputs the line number, file name and reason.
+Syntax errors in preprocessor and "old style" op codes will be detected.
+Problem with "new style" codes is, that the parameters must be allowed. If this is not the case, no code or NOPs will be written.
+Errors in labels and symbols will be shown at the end of the assembling when a used label is not defined.
+Redefined labels will be shown when they occur.
+
+
+Preprocessor Commands:
+----------------------
+; and #
+	Comment separators
+
+.org
+	Defines the start address of code
+	Allowed parameters: Formula of constants, chars and defined symbols
+	Examples:
+	.org 33000
+	.org start
+	.org 0xF000
+	.org start+0x1F
+
+.include
+	Includes a file to process
+	Example: .include sc61680.inc
+
+.equ	
+	Makes a symbol
+	Allowed parameters: Formula of constants, chars and defined symbols
+	Example: .equ regB 3
+
+.ifdef
+ ...
+.endif
+	Symbol dependent code
+	Example:
+	.ifdef PC1360
+	lidp varA
+	.endif
+
+.db
+	Data byte
+	Allowed parameters: Formula of constants, chars and defined symbols, also as comma separated list
+	Examples:
+	.db 55
+	.db 12, 13, 14
+	.db 'A', 'A'+1, 'A'+0x02
+
+.dw
+	Data word
+	Like .db, only 16bit wide
+
+.ds
+	Data string
+	Example: .ds "Teststring"
+
+label:
+	Defines a label
+	Example: MAIN_1:
+
+
+Assembler (Mnemonics):
+---------------------------
+pasm uses the normal PockASM and PocketASM mnemonic list.
+Code with relative address jumps will be translated accordingly.
+
+Example for a relative jump: 
+MAIN:
+	LIA	0
+	JRM	MAIN
+
+
+However, advanced simple commands are now available in pasm:
+
+MOV <dst>, <src>
+	MOV copies a 8 bit value from <src> to <dst>
+	<src> and <dst> can be A,B,I,J,P,Q,R,[P],[DP],[DPL],[+X],[-X],[+Y],[-Y] but only combinations which are available codes for the SC61680!
+	This command encapsulates LIx, LDx, MVxx, STx, Ixx, Dxx
+
+ADD <dst>, <src>
+SUB <dst>, <src>
+	8bit addition and subtraction
+
+OR <dst>, <src>
+AND <dst>, <src>
+	8bit logical and and or
+
+ROR, ROL
+	SR and SL
+
+OUT <port>
+IN <port>
+	For the OUTx and INx commands
+
+INC <register>
+DEC <register>
+	<register> can be X, Y, A, B, I, J, K, L, M, N or P or register number
+
+NOP [<wait time>]
+	This will insert the NOP command. If you add a number, the WAIT n will be inserted.
+
+JMP, JPLO, JPSH, JPNE, JPEQ
+	Absolute jumps, they are normal translations to JP, JPC, JPNC, JPNZ, JPZ
+
+RJMP, BRLO, BRSH, BRNE, BREQ
+	Relative jumps, plus and minus direction is automatically chosen!
+
+CASE
+ <value> <address>
+ ...
+ ELSE <address>
+ENDCASE
+	The case is an easy version of PTC, DTC
+
+
+See "assembler commands.doc" for more information
+
+
+
+Formula parser:
+---------------
+The constant parser is now more powerful:
+
+Operators:
+(,)		-	brackets
+&,|,~,NOT()	-	logical AND, OR, NOT, NOT
++,-,*,/,%	-	add, subtract, multiplicate, divide and modula
+<<,>>		-	shift left, shift right
+ABS(),SQR(),SQRT(),SIN(),COS(),TAN(),ARCTAN(),EXP(),LN(),LOG(),FAK(),LB(),HB(),E,PI	-	math functions
+	LB() is low byte, HB() is high byte
+
+Bases:
+0x..	-	hex number
+0b..	-	binary number

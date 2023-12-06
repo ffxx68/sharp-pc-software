@@ -1,0 +1,406 @@
+littleC Manual
+~~~~~~~~~~~~~~
+
+
+Contents:
+---------
+- Supported Pocket Computers from Sharp
+- Install lcc Tools On Your Big PC
+- How To Set Up Your Pocket Computer
+- The Work Flow From C Source To Loadable Code 
+- The Tool "lcpp"
+- The Compiler "lcc"
+- The Assembler "pasm"
+- The Disassembler "dasm"
+- The Transfer Utility "wintr"
+- Writing Code in littleC
+- Adding Libraries
+- Memory Management
+- Warning
+- Contact
+
+
+
+Supported Pocket Computers from Sharp:
+--------------------------------------
+
+littleC is a general compiler for the SC61860 CPU. Supported models are all with this CPU.
+List:
+PC-1360, PC-1350, PC-1475, PC-1450, PC-1401, PC-1402, PC-1403, PC-1403H, PC-1421, PC-1260, PC-1261
+There are probably more computers with SC61860 CPU out there, feel free to tell me :-)
+
+
+
+Install lcc Tools On Your Big PC:
+---------------------------------
+Unpack the file in a directory with subdirectories and add the path to lcc.exe to your system path.
+
+
+
+How To Set Up Your Pocket Computer:
+-----------------------------------
+
++--------------------+
+|  PC-1360 & PC-1475 |
++--------------------+
+
+1 8kB card in slot 1:
+Get dedicated 2kB RAM space for your assembler programs:
+Type in PROGRAM MODE (press the [ENTER] key after each line):
+NEW
+POKE &FFD7,0,&E8
+NEW
+
+other RAM cards replace the POKE line with
+16kB: POKE &FFD7,0,&C8
+32kB: POKE &FFD7,0,&88
+
+Load compiled programs using the serial loader tool described later.
+The lowest start address for assembler programs is now 32817.
+
+
++-----------+
+|  PC-1350  |
++-----------+
+
+Get dedicated 1kB RAM space:
+- First of all, get the current BASIC start address: PEEK &6F01+256*PEEK &6F02
+- Add 1024 to this value and use a "good" calculator to convert the value to hex.
+  (Note: HB is the upper byte and LB the lower byte, HB = x / 256 and LB = x % 256)
+- Type in PROGRAM MODE (press the [ENTER] key after each line):
+NEW
+POKE &6F01,&<LB>,&<HB> // insert the new hex values here!
+NEW
+- The lowest start address for assembler programs is the old BASIC start address.
+- Load compiled programs using the serial loader tool described later.
+
+
++---------------------+
+|  PC-1401 & PC-1421  |
++---------------------+
+
+Get dedicated 1kB RAM space:
+Type in PROGRAM MODE (press the [ENTER] key after each line):
+NEW
+POKE 18145,&E8,&3B
+NEW
+The lowest start address for assembler programs is now 14337.
+
+
++-----------+
+|  PC-1402  |
++-----------+
+
+Get dedicated 1kB RAM space:
+Type in PROGRAM MODE (press the [ENTER] key after each line):
+NEW
+POKE 18145,&E8,&23
+NEW
+The lowest start address for assembler programs is now 8193.
+
+
++------------+
+|  PC-1403   |
++------------+
+
+Get dedicated 2kB RAM space for your assembler programs:
+Type in PROGRAM MODE (press the [ENTER] key after each line):
+NEW
+POKE &FF01,&30,&E8
+NEW
+The lowest start address for assembler programs is now 32817 (&8031).
+
++------------+
+|  PC-1403H  |
++------------+
+
+Get dedicated 2kB RAM space for your assembler programs:
+Type in PROGRAM MODE (press the [ENTER] key after each line):
+NEW
+POKE &FF01,0,&88
+NEW
+The lowest start address for assembler programs is now 32817 (&8031).
+
+
++-----------+
+|  PC-1260  |
++-----------+
+
+Get dedicated 1kB RAM space:
+Type in PROGRAM MODE (press the [ENTER] key after each line):
+NEW
+POKE 26337,&68,&5C
+NEW
+The lowest start address for assembler programs is now 22657.
+
+
++-----------+
+|  PC-1261  |
++-----------+
+
+Get dedicated 1kB RAM space:
+Type in PROGRAM MODE (press the [ENTER] key after each line):
+NEW
+POKE 26337,&68,&44
+NEW
+The lowest start address for assembler programs is now 16513.
+
+
++------------------------------+
+|  PC-1360 & PC-1350 & PC-1475 |
++------------------------------+
+
+Serial loader tool for PC-1360 & PC-1350 using the "wintr" transfer program or PocketASM on the big PC:
+1 "A" CLOSE : OPEN : INPUT A: FOR A=A TO 9E9: INPUT #1B: POKE A,B: NEXT A
+
+Background info:
+PC-1360 has its BASIC start pointer at address 0xFFD7(LB) and 0xFFD8(HB), PC-1350 at 0x6F01 and 0x6F02. This pointer points at the 0xFF before the first BASIC line. 
+To move the start of the reserved BASIC space, we POKE a new value to this pointer and with "NEW" we reset the new BASIC area. 
+The normal start of BASIC is for PC-1360 at 0x8031 and for PC-1350 at 0x6030 (no RAM card). We just add 2000 and put in the new HB and LB values.
+
+/!\ For more info visit www.pocket.2xs.de (this page is available in German and English!)
+---
+
+
+
+The Work Flow From C Source To Loadable Code:
+---------------------------------------------
+- Write your code, you can use several files, you can include all other files into the "main.c" file (you can name "main.c" however you want) or give the preprocessor all the names of files to process.
+
+Easy way:
+- Run "make.bat main.c out.bas bas" for loadable basic code output, other extensions are dec (decimal numbers) and bin (ascii binary).
+
+Single steps:
+- Run the preprocessor "lcpp main.c [nextfile.c ...] tmp.c", this will merge all included source files, replace the defined symbols and exlude/include the #ifdef blocks.
+- Run the compiler "lcc tmp.c out.asm", this will create a well commented assembler file from your code.
+  If you like, you can further optimize the code by hand.
+- Run the assembler "pasm out.asm out.bas bas" to create loadable basic code, use the other extensions (dec, bin) if you need to.
+
+Load code into your pocket computer:
+- Run "wintr portnumber out.bas" to load the code into your machine (get into PROGRAM MODE then type OPEN[ENTER]LOAD[ENTER] to load a basic program on your pocket computer.) Portnumber is 1 to 8.
+Use "makeld.bat" to get the transfer into your pocket computer done automatically after the make process!
+
+
+
+The Tool "lcpp":
+----------------
+lcpp will take a list of files as parameters. It will remove and replace preprocessor commands and restructure the code.
+The last given file in the list is the output file where the resulting code is put to.
+lcpp will parse recursively all #include files, so make sure there are no double includes! Otherwise the compiler will probably find doublet procedures and variables and halt!
+
+
+
+The Compiler "lcc":
+-------------------
+lcc will do the main work, which is really amazing because it is just a 30kB executable file :-)
+It takes as parameters the input c file and output assembler file.
+If an error is detected it will halt and print out an error statement but no line number, sorry!
+
+
+
+The Assembler "pasm":
+---------------------
+pasm creates from the assembler file the real machine code to run on your pocket device.
+It takes as parameters the input file, the output file and the conversion mode.
+This mode can be "bas" "dec" or "bin". "bas" will create a BASIC program which only loads the code to the memory.
+"dec" will create a decimal list to load with the BASIC program loader described in "How To Setup Your Pocket Computer"
+"bin" creates a binary file for minimum space requirements.
+To read more about the assembler language, visit my homepage, www.aldweb.com and read the pasm manual.
+
+
+
+The Disassembler "dasm":
+------------------------
+This simple tool reverses the assembly. Note that DW, DB, and DS, symbols and labels can't be returned!
+dasm takes two or three arguments: the input file, output file name and optionally the mode of the input file ("dec" or "bin").
+dasm can't reverse basic files.
+
+
+
+The Transfer Utility "wintr":
+----------------------------
+wintr will send data to your pocket computer using the serial interface. So only pocket computers with serial interface can work with it. These are PC-1350, PC-1360 and PC-1475.
+It takes two parameters: comport number and file to send.
+
+
+
+Writing Code in littleC
+-----------------------
+General code layout:
+
+#org <start address>
+
+[#nosave]	// No register saves (Only if you know what you're doing! In certain cases this will crash your Pocket Computer!)
+
+[#include ..]	// Includes
+
+[#define .. ..]	// Defines
+
+[byte | char | word <varlist>]	// Var declarations
+
+function1()	// Function declarations
+{
+	...
+}
+
+...
+
+main()
+{
+	...
+}
+
+
+Differences from big (ANSI) C:
+- Do not use the word void! It will produce errors.
+- Do not create names beginning with variable type names like charout() bytefetch() etc!
+- Pointer can't be used for parameters, sorry!
+- for loops will execute the third argument before the inner part of the loop!
+- You can assign variables to register and memory addresses using "at".
+- Names for local variables have to be global unique!
+- Pointers can point to RAM card or CPU mem, use xram to point to xram. The compiler doesn't know to what kind
+- You can't change the address of a variable using a pointer!
+- No signed types.
+- Operator priorities: [( )] >> [! && ||] >> [== != > < >= <=] >> [* / % &] >> [+ - << >> ~ |]
+- Type conversion: A word assigned to a byte will store the LB of the word, a byte assigned to a word will get the byte into the LB of the word.
+- Maximum array size is 256 for byte and 128 for word arrays.
+- Local variables and function parameters can't be arrays.
+- Function parameter declaration must be as follows: [type] function(type name, type name, ...) {...}
+- You can't use comparisons in assignments.
+- Every block must be enclosed with {..} but you need not if there is only one statement inside. (Example: "if (a>0) b++;")
+- The for (;;) can hold three or two of its parts. Three statements: "for(a=1;a<100;a++)", two: "for(a=1;a<100;)". You must place two ';' inside the brackets!
+- NO ADDITIONAL LIBRARIES, you can't use fancy stuff like printf, getc, strcpy, strcmp, ... and even the math ops * / % won't work because I have no code written for this! Feel free to help me out...
+- Variable & function names are case sensitive but the assembler is not, so you can't name different vars or functions like "Afunction" and "afunction". Each name will have a label so don't create labels with the same name!
+- Some libs are using own labels and the compiler will generate labels LB1, LB2, etc. Make sure you don't get a conflict!
+
+Notice: Go through the delivered demo c code files to get a feeling for littleC, compile them and look at the assembler code produced!
+  If something's not working correctly, please send me your files and tell me what result you've expected (contact info at the bottom of this file).
+
+Preprocessor commands:
+- #define (as you know it, but without parameters)
+- #include (without the ".." or <..>)
+- #ifdef .. #endif (without #else)
+- #org (to define the start address of your program in your pocket computer)
+- #asm .. #endasm (inline assembler)
+
+Supported methods and statements are:
+- Variable declarations (the known types are byte, char, word)
+- Local variable restrictions: no arrays, no "at" and no init values!
+- Preload variables (Examples: byte a = 10; char s[8]="String!"; byte array[4]=(1,2,3,4);)
+- Assign register address: byte pbuf at 8; word y at 6 = 60400;
+- Assign variables in ram card memory: word xram baspnt at 0xFFD7;
+- Pointer declaration: xram will make a pointer point to a xram address (the pointer will be also in xram), no xram will have the pointer to point to CPU memory and the pointer itself is also there. You can't init a pointer with a value!
+- Declare functions with "[type] name([parameters]) {}", [type] is "word", "char", "byte" or nothing.
+- Call functions with "name();"
+- if (condition) {} [else {}]
+- while (condition) {}
+- do {} while(condition);
+- for (start; condition [; assignments]) {}
+- loop (counter value from expression or constant) {} // will loop value + 1 times
+  Never jump out of loop without "pop"
+- break; // leaves the innermost loop
+- return[ expression or constant]; // exits the current function, in the main program it end the whole program
+- switch (expression) {value: procedure(); [value: procedure(); ...] [else: procedure();] }
+- goto labelname; // jumps to label
+- label labelname; // places a label
+- Assignments are like this: "var = expression;" or "var += expression" (allowed are += -= *= /= <<= >>= %= |= &=)
+- Expressions are formulas or constants, can contain variables and functions
+- Operators are + - * / & | % ! ~ << >>
+- conditions are similar and have these operators: == != < > >= <=
+Please notice that you always must define a main function "main()"!
+
+
+
+Adding Libraries:
+-----------------
+You can write any code and store it as a file in the directory to include it in your programs.
+However, some internal functions for 8bit and 16bit math need libraries which are included dynamically when the desired operation occurs.
+These file names are:
+
+8bit math:
+- Multiplication: mul8.lib
+- Division and Modulo: divmod8.lib
+- XOR: xor8.lib
+- Shift left: sl8.lib
+- Shift right: sr8.lib
+
+16bit math:
+o Modulo: mod16.lib
+- Multiplication: mul16.lib
+o Division: div16.lib
+- Shift left: sl16.lib
+- Shift right: sr16.lib
+- XOR: xor16.lib
+- Compare equal: cpe16.lib
+- Compare not equal: cpne16.lib
+- Compare greater or equal: cpge16.lib
+- Compare smaller or equal: cpse16.lib
+- Compare greater: cpg16.lib
+- Compare smaller: cps16.lib
+
+Legend:
+o = not coded yet
+- = available
+
+Library call 8bit:
+Register A holds the first operand and B the second, as: A * B, the result must come back in A.
+Then the routine is called. The name of the label must be like "LIB_MUL8:", replace MUL8 with the lib file names.
+
+Library call 16bit:
+Register A:B holds HB:LB of the second operand and J:I the first, the result must come back in B:A.
+Then the routine is called. The name of the label must be like "LIB_MUL16:", replace MUL16 with the lib file names.
+Comparisons must return the result in A as 255 for "true" and 0 for "false".
+
+
+
+Memory Management:
+------------------
+littleC fills the CPU register space bottom->up with variables and top->down with stack.
+Word variables are LB lower register address and HB higher address.
+
+CPU memory:
++-----+--------------+
+|Addr.|	Name         |
++-----+--------------+
+|0    |	Register I   |
+|1    |	Register J   |
+|2    |	Register A   |
+|3    |	Register B   |
+|4    |	Register XL  |
+|5    |	Register XH  |
+|6    |	Register YL  |
+|7    |	Register YH  |
+|8    |	Register K   |	<- littleC starts assigning register variables and arrays here
+|9    |	Register L   |
+|10   |	Register M   |
+|11   |	Register N   |
+|12   |	free	     |
+|...  |	...	     |
+|90   |	Stack memory |
+|91   |	Stack top    |  <- The stack increases downwards
+|92   |	Port A	     |	
+|93   |	Port B	     |	
+|94   |	Port F	     |	
+|95   |	Port C	     |	
++-----+--------------+	
+
+Local variables and parameters:
+They will be pushed onto the stack, first the parameters and then the local variables.
+Then the function is called. You can even do recursive calls! (But a stack overflow will crash your little PC :-)
+
+
+
+Warning:
+--------
+Please notice that littleC is not as powerful and safe as a big C compiler!
+littleC is still at an early development state and it is not assured that the produced code will be fully operational!
+Also it won't point out coding mistakes like assigning a value to an array without giving an array index.
+Even if there is an error detected in a statement, lcc won't give you the line number because littleC makes a "line-less" compilation using several passes.
+And surely NO guarantee for always correctly working software, sorry :-)
+
+
+
+Contact:
+--------
+Visit my homepage "www.pocket.2xs.de" or mail me directly at "simpc@gmx.de"!
+
