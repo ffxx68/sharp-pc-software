@@ -1,7 +1,7 @@
 ; pasm file - assemble with pasm!
 ; Compiled with lcc v1.0
 
-.ORG	0xE130
+.ORG	33000
 
 	LP	0
 	LIDP	SREG
@@ -100,6 +100,25 @@ MAIN:
 	EXAB
 	INCP		; HB
 	EXAM
+
+	LP	9	; Load 16bit variable h
+	LDM		; HB
+	EXAB
+	DECP		; LB
+	LDM
+	LP	6	; Store 16bit variable wadr
+	EXAM		; LB
+	EXAB
+	INCP		; HB
+	EXAM
+
+	LIA	91	; Load constant 91
+	LP	2	; Store result in regA
+	EXAM
+
+	
+	DY
+	IYS
 
 	RJMP	LB0
   LB1:

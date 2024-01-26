@@ -1,4 +1,4 @@
-#org 0xE130
+#org 33000
 #define LCD_LEFT 0x3000
 #define LCD_RIGHT 0x306C
 
@@ -26,7 +26,16 @@ char writebyte(word adr2, char byt)
 
 main()
 {
-	for (h = LCD_LEFT; h < LCD_LEFT+60; h++)
-		x = writebyte (h, 91);
+	for (h = LCD_LEFT; h < LCD_LEFT+60; h++) {
+		//x = writebyte (h, 91); // NOT WORKING (procedure call in a for not parsed?)
+		wadr = h;
+		regA = 91;
+		#asm
+			DY
+			IYS
+		#endasm
+	}
+	
+
 }
 
