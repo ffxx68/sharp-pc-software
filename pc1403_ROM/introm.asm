@@ -153,34 +153,33 @@
 00000352			6000			ANIM			00
 00000354			37				RTN		
 
-; Block Move
+; Assumed J = 1
+; Move word at (AB) to Y
 00000398			86				LP	6   ; Y
 00000399			1302			LIQ	2   ; AB
-0000039B			0A				MVB		; (AB) --> (Y), J+1 bytes
+0000039B			0A				MVB		; (AB) --> Y, J+1 bytes
 0000039C			37				RTN		
-
-; Block Move 
+; Block word at (AB) to X 
 0000039D			84				LP	4   ; X
 0000039E			1302			LIQ	2   ; AB
-000003A0			0A				MVB		; (AB) --> (Y), J+1 bytes
+000003A0			0A				MVB		; (AB) --> X, J+1 bytes
 000003A1			37				RTN		
-
-; Note as LCD string buffer is at location FEB0
+; Note as PRINT buffer is at location FEB0
 000003A2			02B0			LIA			B0
 000003A4			03FE			LIB			FE
-000003A6			E39D			CAL	0000039D ; block move J+1 bytes (FEB0) -> (X)
+000003A6			E39D			CAL	0000039D ; block move J+1 bytes (FEB0) -> X
 000003A8			05				DX		
 000003A9			37				RTN		
-
+; similar
 000003AA			02B0			LIA			B0
 000003AC			03FE			LIB			FE
-000003AE			E398			CAL	00000398 ; block move J+1 bytes (FEB0) -> (Y)
+000003AE			E398			CAL	00000398 ; block move J+1 bytes (FEB0) -> Y
 000003B0			07				DY		
 000003B1			37				RTN		
-
+; FD00 is another one?
 000003B2			0200			LIA			00
 000003B4			03FD			LIB			FD
-000003B6			E3A6			CAL	000003A6
+000003B6			E3A6			CAL	000003A6 ; block move J+1 bytes (FD00) -> X
 000003B8			37				RTN		
 
 
