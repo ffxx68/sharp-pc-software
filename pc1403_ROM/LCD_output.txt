@@ -1,0 +1,86 @@
+
+ 20/2/2024
+ 
+ 
+Debugging PC-1403 Emulaor on MAME, using 
+
+> mame pc1403 -debug -nomaximize
+
+Found that, setting a writing watchpoint at 3000 (MAME debug command: wpset 3000,1,w), 
+and typing an 'A' that appears no the left of the command line, 
+the debugger stops at first IYS instruction, from below code fragment (comments added by me),
+which is a "signature" for the bitmap printing (I guess something very similar is found 
+in other Sharp PC ROMs):
+
+.ORG 45B7
+			; ...
+			LIA 06 ; 6 characters
+			LP	9  ; Using L as loop counter
+			EXAM	  	
+	LB97:	CALL	44FD ; map char bitmap address --> X
+			; move 5 bytes from (X), downward, to (Y), upward.
+			DXL		
+			IYS		
+			DXL		
+			IYS		
+			DXL		
+			IYS		
+			DXL		
+			IYS		
+			DXL		
+			IYS		
+			INCK		
+			DECL		
+			JRNZM	LB97
+			; ...
+		
+This is a loop in this case to print first 6 charachters starting them from the left of LCD.
+Here, Y must contains the leftmost address of the LCD memory - 1, that is 0x2FFF at the beginning.
+The call to 44FD maps the ascci code from the charactes in buffer (0x10...), to the bitmap address from ROM, returned in X.
+
+See also (partially) disassembled ROM : 
+
+  pc1403_ROM\introm.asm    ( internal CPU ROM ) 
+  pc1403_ROM\extrom09.bin  ( ROM bank #9, offset at 0x4000)
+
+At the watchpoint break, in the example above, these are the content of some registers:
+
+ BA = 00 7C
+ X = 41A9
+ Y = 3000
+
+Note how 7C is the bitmap of the leftmost column of A.
+ 
+Later I found, debugging the PRINT command, that the following calls are passed:
+
+ CALL			00004CED ; --> move print buffer to CPU RAM
+ CALL			00004587 ; --> bitmapping and LCD writing (seen before)
+ ...
+ 
+The call to 0x4CED expects these to be prepared (at least):
+
+ FD60 ... : buffer filled with a string, terminated by 0D
+ FF6C : pointer to the end of the string
+
+I also found at he beginning of 4587 a couple bracnihng based on content of flags at FF54, FF55. Not sure about what.4
+ 
+The 4CED calls moves the local print buffer (at FD60, populated by the PRINT statement, I guess) to the internal CPU memory at 0x10.
+It's relatively short and simple, so it can be replaced by a user program in assembler, for example.
+
+About FF6C, I'm not sure if it's necessary still should contain the end of string pointer. Maybe it's only functional to the 4CED call.
+
+NOTE - Routines in the external ROM can be reached in ASM only after a bank-switch, like this:
+
+		; change memory bank to External ROM
+		LIDP 0x3C00	; Read current bank#
+		LDD
+		PUSH		; save it to stack
+		LIA  0x09   ; select bank #9
+		STD
+	
+		; ROM Entry point for the print
+		CALL 0x4587
+		
+		POP			; Restore original bank#
+		LIDP 0x3C00
+		STD
