@@ -15,7 +15,7 @@
 00000489			34				PUSH		    ; save A (ascii code?)
 0000048A			0200			LIA			00
 0000048C			0341			LIB			41
-0000048E			E39D			CAL	0000039D    ; (4100) --> (Y), J+1 bytes
+0000048E			E39D			CAL	0000039D    ; (4100) --> Y
 00000490			5B				POP		
 00000491			0300			LIB			00
 00000493			6720			CPIA			20  ; blank
@@ -88,7 +88,7 @@
 00000501			2806			JRNZP			LB30
 00000503			86				LP	6	; reg Y
 00000504			10FF3E			LIDP			0000FF3E ; pointer to character in printbuffer
-00000507			53				MVDM
+00000507			53				MVDM			; -> Y
 00000508	LB30:	30				STP		
 00000509			59				LDM		        ; ascii in A
 0000050A			784489			CALL			00004489 ; bitmap pointer calculation -> X
@@ -173,13 +173,14 @@
 
 ; ?
 00000584			7840A0			CALL    000040A0  ; goes to internal ROM 1D48 (init routines?)
+
+
+; ASCII print buffer in memory 0x10... translated to bitmaps and written onto LCD
+; entry with J = 1
 00000587			E844			CAL 	00000844  ; data pointer: LIDP FF55 (?)
-
-
-; ASCII Print buffer at FFB0 translated to bitmap and written onto LCD
-00000589			D601			TSID			01
+00000589			D601			TSID			01  ; flag ?
 0000058B			28BE			JRNZP			LB90
-0000058D			D620			TSID			20  ; if blank, skip?
+0000058D			D620			TSID			20  ; flag ?
 0000058F			38BA			JRZP			LB90
 00000591			10FF3E			LIDP			FF3E ; pointer to current char ?
 00000594			8A				LP	10  ; reg_M
@@ -371,9 +372,9 @@
 
 ; Clear internal RAM at 0x10 and transfer here 24 characters from FD60
 ; FF6C should pint to the end of string
-00000CED			10FF6C			LIDP	0000FF6C ; what is it ???
+00000CED			10FF6C			LIDP	0000FF6C ; pointer to end of string ?
 00000CF0			86				LP	6             
-00000CF1			1A				MVBD		;  (FF6C) -> Y the end of the string
+00000CF1			1A				MVBD		;  (FF6C) -> Y
 00000CF2			06				IY		
 00000CF3			0220			LIA		0x20
 00000CF5			0010			LII		0x10
@@ -384,7 +385,7 @@
 00000CFE			18				MVWD		
 00000CFF			37				RTN	
 
-
+; ************************************************
 ; ** entry point to the print-screen routine ? ***
 00000DB7			784CED			CALL			00004CED ; --> move PRINT buffer to internal RAM
 00000DBA			784587			CALL			00004587 ; --> call to bitmapper and LCD writing
