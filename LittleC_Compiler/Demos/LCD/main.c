@@ -73,29 +73,51 @@ JR115E: TEST  0x02          ; Test 2 ms timer
 	}
 }
 
+ 
 // using ROM display routines
-printf() {
+puts() {
 
-	// how to get string address dinamically ??
+	// how to get a string address dinamically 
+	// should I use a local buffer (so to 
 #asm	
-		; FF6C gets the pointer to string end address in buffer
-		; hardcoded for now to 0xE037!!
-		LIA	  0x37	; low
-		LIDP  0xFF6C
-		STD
-		LIA	  0xE0	; high
-		LIDP  0xFF6D
-		STD
 
-		LIDP	0xFF6C ; pointer to end of string
-		LP	6             
-		MVBD		   ; -> Y
-		IY		
-		LIA		0x20
+		; look for string end (0x00)
+		; hardcoded string name 'mystring', for now
+		LP	4	;  XL
+		LIA	LB(mystring) ; translated by pasm to the .DB constant of the compiled code, not to 'mystring' address!!
+		EXAM
+		LP	5	;  XH
+		LIA	HB(mystring)
+		DX
+		LII  0x16      ; max size (23 chars, terminator excluded)
+PUTS_LOOP1:	
+		IXL
+		CPIA 0x00      ; string end reached
+		JRZP PUTS_LB1
+		DECI
+		JRNZM PUTS_LOOP1
+		RTN            ; do nothing, if larger than max size!	
+	
+PUTS_LB1:
+		LIJ 1
+		;LIA			6C
+		;LIB			FF
+		;CAL	00000398 ; FF6C -> Y
+		;DY	
+		;LIQ  4
+		;LP 6
+		;MVW          ; (X) -> (Y)
+		
+		;IX
+		;DX
+		;LIA		0x0D   ; in place replace - WRONG!!!
+		;STD
+		IX
+		LIA		0x20   ; fill with blanks - LEAK!!! we're writing to a shorter buffer (mystring)
 		LII		0x10
 		FILD		
-		LIDP	0xE030+1 ; 0xE030 : begin of Print BUFFER
-		LP	    0x10   ; destination 0x10
+		LIDP	mystring+1 ; hardcoded string name
+		LP	    0x10   ; destination 0x10 on
 		LII		0x17   ; 24-1 characters
 		MVWD
 
@@ -115,6 +137,7 @@ printf() {
 #endasm
 }
 
+/*
 char getchar () {
 #asm	
     CALL  0x1494        ; Syscall: wait for a keystroke
@@ -136,14 +159,15 @@ flashlcd(byte num){
 		//delay (50);
 	}
 }
+*/
 
 main()
 {
 	char c, x;
 	
-	printf();
+	puts();
 	
-	c = getchar (); // stop
+	//c = getchar (); // stop
 	
 	// flash - DOES NOT WORK ! 
 	/*
