@@ -1,4 +1,4 @@
-#org 0xE0E8
+#org 0xE030
 
 /*
 Reserving 2 K on top of BASIC program memory:
@@ -8,35 +8,26 @@ PC-1403
 NEW
 MEM
  6878
-POKE &FF01,&30,&E8
+POKE &FF01,&30,&E8 
 NEW
 MEM
  4830
 
- 0xE031 to 0xE0E7 for local memory (182 bytes)
- 0xE0E8 to 0xE82F for program (1865 bytes) 
+ 0xE030 to 0xE82F for ASM program (1865 bytes) 
+ 0xE830 ... BASIC
  
 Machine code entry point at 0xE0E8 = 57576
-
-
-PC-1403 H
-
-POKE &FF01,&30,&E8
-
-Machine code entry point at 0x80E8 = 33000
 
 */
 
 #define LCD_LEFT 0x3000
 #define LCD_RIGHT 0x306C
 
-#define PRT_BUF 0xFEB0
-
 byte regI at 0, regJ 1;
 char regA at 2, regB at 3; 
 word regX at 4, regY at 6, addr at 8;
 
-char mystring[7] at 0xE031 = "FFXX68";
+char xram mystring[7] = "FFXX68";
 
 char readbyte(word adr)
 {
@@ -57,70 +48,53 @@ writebyte(word adr2, char byt)
 #endasm
 }
 
-delay (byte time) {
-	byte j;
-
-	for (j = 0; j < time; j++) {
+delay05() {
 #asm
-WAIT 0x10
+DELAY05_LOOP: 
+	TEST  0x01          ; Test .5 s timer
+	JRZM  DELAY05_LOOP
 #endasm
-/*
-#asm
-JR115E: TEST  0x02          ; Test 2 ms timer
-		JRZM  JR115E		; Loop on timer signal off
-#endasm
-*/
-	}
 }
-
  
-// using ROM display routines
-puts() {
-
-	// how to get a string address dinamically 
-	// should I use a local buffer (so to 
-#asm	
-
-		; look for string end (0x00)
-		; hardcoded string name 'mystring', for now
-		LP	4	;  XL
-		LIA	LB(mystring) ; translated by pasm to the .DB constant of the compiled code, not to 'mystring' address!!
+// using display routine from ROM
+puts(word str) {
+	
+	addr = str;
+	
+	// how to get string addresses dinamically?
+	// hardcoded name 'mystring', for now ...
+#asm
+		; fill destination with 24 blanks, beforehand
+		LII   0x16
+		LP	  0x10   ; destination start (internal ram)
+		LIA	  0x20   ; blank
+		FILM
+		
+		; just like a C strncpy()
+		LP	4			;  XL
+		LIA	LB(mystring) 
 		EXAM
-		LP	5	;  XH
+		LP	5			;  XH
 		LIA	HB(mystring)
+		EXAM
 		DX
 		LII  0x16      ; max size (23 chars, terminator excluded)
+		LP	 0x10      ; destination
 PUTS_LOOP1:	
-		IXL
-		CPIA 0x00      ; string end reached
-		JRZP PUTS_LB1
+		IXL            ; X -> DP; DP+1 -> DP, X; (DP) -> A 
+		MVMD     	   ; (DP) -> (P)
+		INCP
+		CPIA    0x00   ; string end reached
+		JRZP    PUTS_LB1
 		DECI
-		JRNZM PUTS_LOOP1
-		RTN            ; do nothing, if larger than max size!	
-	
-PUTS_LB1:
-		LIJ 1
-		;LIA			6C
-		;LIB			FF
-		;CAL	00000398 ; FF6C -> Y
-		;DY	
-		;LIQ  4
-		;LP 6
-		;MVW          ; (X) -> (Y)
-		
-		;IX
-		;DX
-		;LIA		0x0D   ; in place replace - WRONG!!!
-		;STD
-		IX
-		LIA		0x20   ; fill with blanks - LEAK!!! we're writing to a shorter buffer (mystring)
-		LII		0x10
-		FILD		
-		LIDP	mystring+1 ; hardcoded string name
-		LP	    0x10   ; destination 0x10 on
-		LII		0x17   ; 24-1 characters
-		MVWD
+		JRNZM   PUTS_LOOP1 ; until max size
 
+PUTS_LB1:
+		LIA		0x0D     ; always terminate with newline
+		DECP
+		EXAM
+		LIJ 1 ; needed
+		
 		; change memory bank to External ROM
 		LIDP 0x3C00	; Read current bank#
 		LDD
@@ -137,7 +111,6 @@ PUTS_LB1:
 #endasm
 }
 
-/*
 char getchar () {
 #asm	
     CALL  0x1494        ; Syscall: wait for a keystroke
@@ -146,35 +119,26 @@ char getchar () {
 }
 
 flashlcd(byte num){
-	byte i;
 	
-	for (i = 0; i < num; i++) {
-		for (addr = LCD_LEFT; addr < LCD_LEFT+15; addr++) {
-			writebyte(addr, 91);
+	for (regB=0;regB<num;regB++) {
+		for (addr=LCD_LEFT;addr<LCD_LEFT+15;addr++) {
+			writebyte(addr,91);
 		}
-		//delay (50);
-		for (addr = LCD_LEFT; addr < LCD_LEFT+15; addr++) {
-			writebyte(addr, 0);
+		delay05();
+		for (addr=LCD_LEFT;addr<LCD_LEFT+15;addr++) {
+			writebyte(addr,0);
 		}
-		//delay (50);
+		delay05();
 	}
 }
-*/
 
 main()
 {
-	char c, x;
-	
-	puts();
-	
-	//c = getchar (); // stop
-	
-	// flash - DOES NOT WORK ! 
-	/*
-	for (addr = LCD_LEFT; addr < LCD_LEFT+60; addr++) {
-		writebyte (addr, 91);
-	}
 	//flashlcd(5);
-	*/
+	//regB=getchar();
 	
+	puts(mystring);
+	regB=getchar();
+	
+	//flashlcd(5);
 }
