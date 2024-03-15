@@ -1,8 +1,9 @@
-; Sharp PC-1403 internal CPU ROM &-&1FFF
+; Sharp PC-1403 internal CPU ROM
+; &0000-&1FFF
 
 
-; BOOT from 0 ? 
-	LB111:	4EE0			WAIT			224
+; BOOT is from 0000 ? 
+0000	LB111:	4EE0			WAIT			224
 0002			0201			LIA			1
 0004			125F			LIP			95
 0006			DB				EXAM		
@@ -715,7 +716,7 @@
 1044			2D15			JRM		LB258
 
 
-; Arithmetic MULTIPLY (?) : floatX * floatY -> floatX
+; Arithmetic MULTIPLY : floatX * floatY -> floatX
 1048			E311			CAL		0311
 104A			91				LP		11
 104B			1319			LIQ		19
@@ -754,7 +755,7 @@
 107B			E5C1			CAL		05C1
 107D			37				RTN	
 
-; Arithmetic DIVIDE (?) : floatX / floatY -> floatX
+; Arithmetic DIVIDE : floatX / floatY -> floatX
 1080			E311			CAL		0311
 1082			E176			CAL		0176
 1084			99				LP		19
@@ -816,7 +817,7 @@
 ; now, value of variable A is in floatY; I = 7; J = 1
 ; *VERIFIED* 
 ; entry point with floatX and floatY populated
-; floatY - floatX --> floatX
+; floatY + floatX --> floatX
 10C2			E2CE			CAL		02CE 	; pre-calc sign
 10C4			EFE2			CAL		0FE2 	; this performs the BCD sum
 10C6			E2F5			CAL		02F5 	; post-calc sign
