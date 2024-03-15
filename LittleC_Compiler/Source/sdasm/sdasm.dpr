@@ -1,13 +1,17 @@
 program sdasm;
+
+{$IFDEF FPC}
+  {$MODE Delphi}
+{$ENDIF}
  
 {$APPTYPE CONSOLE}
  
 uses
-  SysUtils;
+  SysUtils, StrUtils;
  
 const
         CONDJUMP = [124..127, 56..59, 40..43];
-        OP_JUMP = [44, 45, 120, 121];
+        OP_JUMP = [ {44, 45,} 120, 121];
         A_JUMP = [121];
         R_JUMP = [44, 45];
         A_CJUMP = [124..127];
@@ -439,58 +443,79 @@ var f: textfile;
     c, t: integer;
  
   procedure genoutp(bnk, start, len: integer);
-  var i, th: integer;
+  var i, th, j: integer;
   begin
     i := start;
     if p_rom then c_len := start + len;
     while i - start < c_len do
     begin
+
+      write(f, IntToHex ( i, 4 ));  { current address }
       if code[bnk, i].op then
       begin
+
         if code[bnk, i].lab <> -1 then
         begin
-          writeln(f);
-          write(f, 'LB', code[bnk, i].lab, ':');
-        end;
+          { writeln(f); }
+          write(f, #9, 'LB', code[bnk, i].lab, ':', #9);
+        end else
+            write(f, #9, #9, #9);
+        for j := 0 to NBARGU[code[bnk, i].v]-1 do
+            write(f, IntToHex ( code[bnk, i+j].v ))   ;
+        if NBARGU[code[bnk, i].v] = 1 then
+          write(f, #9 );
+        write(f, #9, #9);
         if not (code[bnk, i].v in [128..191, 224..255]) then
+        begin
           write(f, #9, OPCODE[code[bnk, i].v]);
+          if Length(OPCODE[code[bnk, i].v]) < 4 then write(f, #9);
+        end;
         if code[bnk, i].v = 55 then
           writeln(f);
-        if code[bnk, i].v in OP_JUMP then
+        if code[bnk, i].v in { OP_JUMP } ( A_JUMP + A_CJUMP ) then
         begin
           t := code[bnk, i+1].v * 256; t := t + code[bnk, i+2].v;
-          if code[bnk, i].nolab then writeln(f, #9, t)
+          if code[bnk, i].nolab then writeln(f, #9, IntToHex(t, 4) )
           else writeln(f, #9, 'LB', code[bnk, i].dstlab);
           inc(i, 2);
         end else
+        if code[bnk, i].v in ( R_JUMP + R_CJUMP ) then
+        begin
+          if code[bnk, i].nolab then writeln(f, #9, IntToHex(code[bnk, i+2].v, 4) )
+          else writeln(f, #9, 'LB', code[bnk, i].dstlab);
+          inc(i);
+        end else
         if code[bnk, i].v = 16 then
         begin
-          t := code[bnk, i+1].v * 256; t := t + code[bnk, i+2].v;
-          if code[bnk, i].nolab then writeln(f, #9, t)
-          else writeln(f, #9, 'LB', code[bnk, i].dstlab);
+          t := code[bnk, i+1].v * 256 + code[bnk, i+2].v;
+          { if code[bnk, i].nolab then } writeln(f, #9, IntToHex( t, 4))
+          {else writeln(f, #9, 'LB', code[bnk, i].dstlab) } ;
           inc(i, 2);
         end else
         if code[bnk, i].v in [224..255] then
         begin
-          t := code[bnk, i].v - 224; t := t + code[bnk, i+1].v;
-          if code[bnk, i].nolab then writeln(f, #9'CAL'#9, t)
-          else writeln(f, #9'CAL'#9'LB', code[bnk, i].dstlab);
+          write(f, #9'CAL'#9);
+          t := code[bnk, i].v - 224 + code[bnk, i+1].v;
+          {if code[bnk, i].nolab then }writeln(f, #9, IntToHex( code[bnk, i].dstadr, 4) )
+          {else writeln(f, #9, 'LB', code[bnk, i].dstlab)} ;
           inc(i);
         end else
         if code[bnk, i].v in [128..191] then
         begin
-          writeln(f, #9, 'LP'#9, code[bnk, i].v-128);
+          writeln(f, #9, 'LP'#9#9, IntToHex( code[bnk, i].v-128, 2 ));
         end else
         if code[bnk, i].v in R_CJUMP then
         begin
-          if code[bnk, i].nolab then writeln(f, #9, code[bnk, i+1].v)
+          if code[bnk, i].nolab then writeln(f, #9, IntToHex(code[bnk, i+1].v))
             else writeln(f, #9, 'LB', code[bnk, i].dstlab);
           inc(i);
         end else
         if code[bnk, i].v in A_CJUMP then
         begin
-          if code[bnk, i].nolab then writeln(f, #9, code[bnk, i+1].v*256+code[bnk, i+2].v)
-            else writeln(f, #9, 'LB', code[bnk, i].dstlab);
+          if code[bnk, i].nolab then
+            writeln(f, #9, IntToHex(code[bnk, i+1].v*256+code[bnk, i+2].v, 4))
+          else
+            writeln(f, #9, 'LB', code[bnk, i].dstlab);
           inc(i, 2);
         end else
         if code[bnk, i].v = 105 then
@@ -502,13 +527,13 @@ var f: textfile;
             inc(i, 3);
             writeln(f, #9'.DB'#9, code[bnk, i-2].v);
             t := code[bnk, i-1].v * 256; t := t + code[bnk, i].v;
-            if code[bnk, i-1].nolab then writeln(f, #9, '.DW'#9, t)
+            if code[bnk, i-1].nolab then writeln(f, #9, '.DW'#9, IntToHex(t, 4))
             else writeln(f, #9'.DW'#9'LB', code[bnk, i-1].dstlab);
             dec(th);
           end;
           inc(i, 2);
           t := code[bnk, i-1].v * 256; t := t + code[bnk, i].v;
-          if code[bnk, i-1].nolab then writeln(f, #9, '.DW'#9, t)
+          if code[bnk, i-1].nolab then writeln(f, #9, '.DW'#9, IntToHex(t, 4))
           else writeln(f, #9'.DW'#9'LB', code[bnk, i-1].dstlab);
         end else
         if code[bnk, i].v = 122 then
@@ -516,26 +541,27 @@ var f: textfile;
           inc(i, 3);
           t := code[bnk, i-1].v * 256; t := t + code[bnk, i].v;
           writeln(f);
-          writeln(f, #9'.DB'#9, code[bnk, i-2].v);
-          if code[bnk, i-3].nolab then writeln(f, #9'.DW'#9, t)
+          writeln(f, #9'.DB'#9,  IntToHex ( code[bnk, i-2].v ));
+          if code[bnk, i-3].nolab then writeln(f, #9'.DW'#9, IntToHex(t, 4))
           else writeln(f, #9'.DW'#9'LB', code[bnk, i-1].dstlab);
         end else
         if NBARGU[code[bnk, i].v] = 2 then
         begin
           inc(i);
-          writeln(f, #9, code[bnk, i].v);
+          writeln(f, #9,  IntToHex ( code[bnk, i].v ) );
         end else
         if NBARGU[code[bnk, i].v] = 3 then
         begin
           inc(i, 2);
           t := code[bnk, i-1].v * 256;
-          writeln(f, #9, t+ code[bnk, i].v);
+          writeln(f, #9,  IntToHex (  t + code[bnk, i].v ));
         end else
           writeln(f);
       end else
       begin
         if code[bnk, i].lab <> -1 then write(f, 'LB',code[bnk, i].lab,':');
-        writeln(f, #9'.DB'#9, code[bnk, i].v);
+        writeln(f, #9, #9, #9, IntToHex ( code[bnk, i].v ), #9, #9, '??')   ;
+        {writeln(f, #9'.DB'#9, code[bnk, i].v);    }
       end;
       inc(i);
     end;
@@ -566,7 +592,8 @@ end;
 
 procedure loadroms(fnam: string);
 var c, d: integer;
- 
+var startadrhex: string;
+
  procedure loadrom(rnam: string; bnk, offset: integer);
  var f: file of byte;
      b: byte;
@@ -576,7 +603,14 @@ var c, d: integer;
     error(rnam + ' not found!');
   assignfile(f, rnam);
   reset(f);
-  i := offset;
+  i := 0;
+  while ( (not eof(f)) and (i < offset) ) do
+  begin
+    read(f, b);
+    inc(i);
+  end;
+  { i := offset;  }
+  writeln ( 'addr: &' + IntToHex(i) );
   while not eof(f) do
   begin
     read(f, b);
@@ -589,6 +623,8 @@ var c, d: integer;
  
 begin
   for c := 0 to 7 do
+
+
     for d := 0 to 65535 do
     begin
       code[c, d].v := 255;
@@ -598,19 +634,21 @@ begin
       code[c, d].tl := 0;
     end;
  
-  if p_rom then
-  begin
-    for c := 0 to 7 do
+    if p_rom then
     begin
-      loadrom('cpu-1360.rom', c, 0);
-      loadrom('B' + inttostr(c-1) + '-1360.rom', c, ROM_OFFSET);
+      for c := 0 to 7 do
+      begin
+        loadrom('cpu-1360.rom', c, 0);
+        loadrom('B' + inttostr(c-1) + '-1360.rom', c, ROM_OFFSET);
+      end;
+    end else
+    begin
+
+      write('Please enter the offset address (hex 0xNNNN):');
+      readln(startadrhex);
+      startadr := StrToInt(startadrhex);
+      loadrom(fnam, 0, startadr);
     end;
-  end else
-  begin
-    write('Please enter the start address: ');
-    readln(startadr);
-    loadrom(fnam, 0, startadr);
-  end;
 end;
  
 
