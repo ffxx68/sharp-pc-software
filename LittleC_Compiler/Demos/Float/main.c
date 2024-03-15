@@ -25,10 +25,9 @@ word regX at 4, regY at 6, addr at 8;
 // locations for floating-point (BCD) operations
 // X (10H to 17H) ; Y (18H to 1FH)
 byte floatX[8] at 0x10 = (0x00, 0x20, 0x12, 0x30, 0x00, 0x00, 0x00, 0x00); // 1.23 x 10^2 = 123
-byte floatY[8] at 0x18 = (0x00, 0x20, 0x34, 0x50, 0x00, 0x00, 0x00, 0x00); // 1.23 x 10^2 = 123
-byte floatZ[8] at 0x20 = (0x00, 0x20, 0x67, 0x80, 0x00, 0x00, 0x00, 0x00); // 1.23 x 10^2 = 123
+byte floatY[8] at 0x18 = (0x00, 0x20, 0x34, 0x50, 0x00, 0x00, 0x00, 0x00); // 3.45 x 10^2 = 345
+byte floatZ[8] at 0x20 = (0x00, 0x20, 0x67, 0x80, 0x00, 0x00, 0x00, 0x00); // 6.78 x 10^2 = 678
 byte xram idx;
-
 
 // numerical routines from ROM
 // mostly taken from Hrast's notes
@@ -82,17 +81,14 @@ uint2float(word binary_num) {
 #endasm
 }
 
-
-
 main()
 {
 	
 	 // uint2float(); // verified
 	 //f_swapXY(); // verified
-	 //f_add(); // verified
-	 //f_subtr(); // verified
-	 //f_mult(); // verified
-	 f_div(); // verified
-	 
-	 
+	 //f_add(); // verified: 
+	 //f_subtr(); // verified: 222
+	 //f_mult(); // verified: 42435
+	 f_div(); // verified: 2.804878049
+
 }
