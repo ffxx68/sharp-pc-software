@@ -1,0 +1,106 @@
+; Bank-switched external ROM 08
+
+; offset at 0x4000
+
+
+
+; Entry points for numerical functions
+; Operations performed on internal RAM "X" (0x10-0x1F) and "Y" (0x18-0x1F) operation registers
+; For single variable functions, use operation register X only
+; return value in X operation register
+
+; Code pattern similar to PC1350 functions (from the assembly language manual)
+; But these need to be verified, on the PC1403!
+
+; Addition ? : Y + X -> X
+0A52			E2CE			CAL	 02CE ; in CPU internal ROM 
+0A54			785466			CALL 5466 ; at +1466
+0A57			E2F5			CAL	 02F5
+0A59			37				RTN	
+
+; Multiplication ???? : Y * X -> X
+0A5A			E2DD			CAL	02DD
+0A5C			785764			CALL 5764 ; at +1764
+0A5F	LB10:	E300			CAL	0300
+0A61			37				RTN	
+
+; Division ????
+0A62			E2DD			CAL	02DD
+0A64			785060			CALL 5060 ; at +1060
+0A67			2D09			JRM			LB10
+
+; ?
+0A69			E2DD			CAL	02DD
+0A6B			785768			CALL 5768
+0A6E			2D10			JRM			LB10
+
+
+
+; used at 0x0A52
+1466			E1B0			CAL	01B0
+1468			10307F			LIDP			LB10
+146B			D601			TSID			01
+146D			3805			JRZP			LB11
+146F			F07E			CAL	107E
+1471			E379			CAL	0379
+1473	LB11:	E203			CAL	0203
+1475			B1				LP	49
+1476			0200			LIA			00
+1478			6208			TSIM			08
+147A			3835			JRZP			LB12
+147C			92				LP	18
+147D			62F0			TSIM			F0
+147F			2823			JRNZP			LB15
+1481			E169			CAL	0169
+1483			E1CA			CAL	01CA
+1485			37				RTN		
+
+1486	LB16:	E1F2			CAL	01F2
+1488			F07E			CAL	107E
+148A			E379			CAL	0379
+148C			E203			CAL	0203
+148E			785503			CALL			5503
+1491			7D0D60			JPNC			0D60
+1494			6210			TSIM			10
+1496			7E0D60			JPZ			0D60
+1499			E1F2			CAL	01F2
+149B			F07E			CAL	107E
+149D			E379			CAL	0379
+149F			E203			CAL	0203
+14A1			2C0C			JRP			LB17
+14A4			55		??
+14A5			03		??
+14A6			2B21			JRNCM			LB16
+14A8			0200			LIA			00
+14AA			6210			TSIM			10
+14AC			3803			JRZP			LB12
+14AE	LB17:	0220			LIA			20
+14B0	LB12:	B1				LP	49
+14B1			60D7			ANIM			D7
+14B3			47				ORMA		
+14B4			AA				LP	42
+14B5			62F0			TSIM			F0
+14B7			2810			JRNZP			LB13
+14B9			B1				LP	49
+14BA			6201			TSIM			01
+14BC			7C0D60			JPNZ			0D60
+14BF			92				LP	18
+14C0			62F0			TSIM			F0
+14C2			7E0D60			JPZ			0D60
+14C5			E14F			CAL	014F
+14C7			37				RTN		
+
+14C8	LB13:	E1F2			CAL	01F2
+14CA			E1E6			CAL	01E6
+14CC			E1D8			CAL	01D8
+14CE			E438			CAL	0438
+14D0			78575B			CALL			575B
+14D3			785719			CALL			5719
+14D6			B1				LP	49
+14D7			6101			ORIM			01
+14D9			6220			TSIM			20
+14DB			2803			JRNZP			LB14
+14DD			60FE			ANIM			FE
+14DF	LB14:	E5C1			CAL	05C1
+14E1			E379			CAL	0379
+14E3			37				RTN		
