@@ -1,6 +1,11 @@
 //{$MODE DELPHI}
 {--------------------------------------------------------------}
 unit Output;
+
+{$IFDEF FPC}
+  {$MODE Delphi}
+{$ENDIF}
+
 {--------------------------------------------------------------}
 interface
 procedure writLn(s: string);		{ Emit an instruction line }

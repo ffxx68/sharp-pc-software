@@ -1,12 +1,17 @@
 {--------------------------------------------------------------}
 program lcc;
+
+{$IFDEF FPC}
+  {$MODE Delphi}
+{$ENDIF}
+
 {$APPTYPE CONSOLE}
-uses Input, Output, Errors, Scanner, Parser, sysutils;
+uses Input, Output, Errors, Scanner, parser, sysutils;
 
 begin
         outfile := true;
         writeln;
-        writeln('lcc v1.0 - littleC Compiler for Hitachi SC61860 CPU');
+        writeln('lcc v1.1 - littleC Compiler for Hitachi SC61860 CPU');
         writeln('(c) Simon Lehmayr 2004');
         if paramcount = 2 then
         begin

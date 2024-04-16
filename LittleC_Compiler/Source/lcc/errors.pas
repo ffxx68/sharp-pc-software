@@ -1,6 +1,11 @@
 //{$MODE DELPHI}
 {--------------------------------------------------------------}
 unit Errors;
+
+{$IFDEF FPC}
+  {$MODE Delphi}
+{$ENDIF}
+
 {--------------------------------------------------------------}
 interface
 procedure Error(s: string);
@@ -17,10 +22,11 @@ uses scanner;
 procedure Error(s: string);
 begin
 	WriteLn;
-	WriteLn({^G,} 'Error: ', s, '.');
+	WriteLn('** ERROR in line: ', linecnt);
+        WriteLn('** ', s);
   if tok <> '' then writeln('Token: '+tok);
   if dummy <> '' then writeln('Code: '+dummy);
-	Halt;
+	Halt (1);
 end;
 
 {--------------------------------------------------------------}

@@ -1,9 +1,14 @@
 //{$MODE DELPHI}
 {--------------------------------------------------------------}
 unit Parser;
+
+{$IFDEF FPC}
+  {$MODE Delphi}
+{$ENDIF}
+
 {--------------------------------------------------------------}
 interface
-uses Input, Scanner, Errors, CodeGen, Output, sysutils, calcunit;
+uses Input, Scanner, Errors, CodeGen, Output, sysutils, calcunit, math;
 
 procedure FirstScan(filen: string);
 procedure SecondScan(filen: string);
@@ -25,6 +30,7 @@ type
         Xram, At, Arr, Local, Pointer: boolean;
         address, locproc: integer;
         size, initn: integer;
+        initf: Float;
         Typ, PntTyp, inits: string;
         end;
 
@@ -32,7 +38,8 @@ type
         ProcEntry = record
         ProcName: string;
         ProcCode: string;
-        hasreturn, ReturnIsWord: boolean;
+        hasreturn, ReturnIsWord, IsCalled: boolean;
+        ReturnType: string;
         Params: string;
         ParCnt: integer;
         ParName, ParTyp: Array [0..20] of string;
@@ -40,20 +47,6 @@ type
         LocName, LocTyp: Array [0..20] of string;
         end;
 
-const
-        BO = #200;
-        BA = #201;
-        EQ = #202;
-        NE = #203;
-        GR = #204;
-        SM = #205;
-        GE = #206;
-        SE = #207;
-        PP = #210;
-        MM = #211;
-
-        REF = 1;
-        ADR = 2;
 
 
 {--------------------------------------------------------------}
@@ -71,13 +64,83 @@ var LCount: integer;
     procd, firstp, nosave: boolean;
 //    MemImg: Array [0..95] of integer;
 
+// Build a string of bytes in the Sharp floating point BCD format
+// Numbers from -9.999999999 x 10^99 to 9.999999999 x 10^99 can be represented
+function SharpBCD(x: Float): String;
+var
+  m: Float ;
+  i, e, c: integer;
+  d: string;
+begin
+
+  if x=0.0 then begin
+      for i := 1 to 8 do Result := Result + chr(0);
+      exit;
+  end else
+      e := round(Log10(abs(x)));
+
+  if ( e < -99 ) or ( e > 99 ) then
+     Error ( ' float OUT OF RANGE :' + FloatToStr ( x ) );
+
+  m := abs(x/intpower(10.0, e - 10 ));
+  {if sign(e) = 1 then
+  begin
+      e := e - 1;
+      m := m * 10;
+  end;
+  }
+
+  Result := '';
+  c := 0;
+
+  // build a 12 digits mantissa
+  for i := 1 to 6 do begin
+       //writeln ('  DEBUG SharpBCD m ', m);
+       c := trunc ( m mod 10 );
+       m := trunc (m / 10);
+       c := trunc ( m mod 10 ) * 16 + c;
+       m := trunc (m / 10);
+       Result := chr(c) + Result ;
+       c := 0;
+  end;
+
+  // mantissa sign
+  // Zero is used when the mantissa is positive
+  // Eight is used when the mantissa is negative.
+  if sign(x) = -1 then c := 8
+  else c := 0;
+
+  // exponent
+  // The most significant digit is zero for positive numbers.
+  // Negative numbers are represented using a 100-complement.
+  //   "901" ( 10E-99 ) to "099" (10E99)
+  if sign(e) = -1 then
+  begin
+       e := e + 100;
+       Result := chr ( trunc ( e mod 10 ) * 16 + c ) + Result;
+       c := 9 * 16;
+  end else
+  begin
+       Result := chr ( trunc ( e mod 10 ) * 16 + c ) + Result;
+       c := 0;
+  end;
+  e := trunc (e / 10);
+  Result := chr ( c + trunc ( e mod 10 ) ) + Result;
+
+  // debug result
+  //write ('  DEBUG SharpBCD ', x, ': ');
+  //for i := 1 to 8 do write ( IntToHex(ord(Result[i]))+','); writeln();
+
+end;
 
 
-function mathparse(s: string; w: integer): integer;
-var i, p: integer;
+
+function mathparse(s: string; w: integer): Float;
+var i, p, k: integer;
     c, s2: string;
     lf: boolean;
-    
+    r: Float;
+
 procedure skiphex(var hs: string; var hi:integer);
 begin
     while (hi < length(hs)) and (upcase(hs[hi]) in ['0'..'9','A'..'F']) do
@@ -145,13 +208,20 @@ begin
         end;
         if lf then begin result := 0; exit; end;
 
-	Evaluate(s, w, i, p);
-	result := i;
+	Evaluate(s, w, r, p);
         if p <> 0 then
         begin
-                writeln('Erroneous formula: ' + s);
+                writeln('Erroneous formula: <' + s + '>');
                 Error('Formula error!');
         end;
+
+        // r could evaluate to a floating point (w = 0)
+        // truncate to integer size only if needed (e.g. w = 8 or w = 16)
+        if not w = 0 then begin
+           for i := 0 to w-1 do k:=k or (1 shl i);
+           result := trunc(r) and k;
+        end else
+            result := r ; // handles floating point too!
 end;
 
 
@@ -183,8 +253,9 @@ end;
 { Print Var Table }
 
 procedure printvarlist;
-var i, c, initn, adr, size, lproc: integer;
+var i, j, c, initn, adr, size, lproc: integer;
     s, name, typ, inits: string;
+    initf: Float;
     xr, arr, loc: boolean;
 begin
         writeln;
@@ -199,6 +270,7 @@ begin
                 adr := varlist[i].address;
                 size := varlist[i].size;
                 initn := varlist[i].initn;
+                initf := varlist[i].initf;
                 inits := varlist[i].inits;
                 if varlist[i].pointer then s:='*' else s:='';
                 loc := varlist[i].local;
@@ -234,12 +306,26 @@ begin
                                                 write(', ')
                                         else
                                                 writeln;
+                                end
+                                else if typ = 'float' then begin
+                                  writeln();
+                                  for c := 0 to size-1 do begin
+                                      write(#9);
+                                      for j := 1 to 7 do write(IntToHex(ord(inits[c*8+j]))+',');
+                                      writeln(IntToHex(ord(inits[c*8+8])))
+                                  end;
                                 end;
                         end else
                                 if typ = 'char' then
                                         writeln(chr(initn))
-                                else
-                                        writeln(initn);
+                                else if ( typ = 'byte' ) or ( typ = 'word') then
+                                        writeln(initn)
+                                else if ( typ = 'float') then
+                                begin
+                                        write (' ');
+                                        for j := 1 to 7 do write(IntToHex(ord(inits[j]))+',');
+                                        writeln(IntToHex(ord(inits[8])));
+                                end;
                 end else
                         writeln;
         end;
@@ -261,8 +347,8 @@ begin
                 write(Proclist[i].procname);//,', CODE: ',proclist[i].proccode);
                 if Proclist[i].hasreturn then
                 begin
-                  write(', RETURNS: ');
-                  if Proclist[i].returnisword then write('word') else write('byte');
+                  write(', RETURNS: ', Proclist[i].returntype);
+                  {if Proclist[i].returnisword then write('word') else write('byte');}
                 end;
                 if Proclist[i].parcnt > 0 then writeln(', PARAMS: ',Proclist[i].params) else writeln;
         end;
@@ -273,7 +359,7 @@ end;
 {--------------------------------------------------------------}
 { Test if variable is at address }
 
-function IsVarAtAdr(adr{, size}: integer): boolean;
+function IsVarAtAdr(adr, size: integer): boolean;
 var i: integer;
 begin
         result := false;
@@ -288,12 +374,25 @@ begin
                 end;
 }
         for i := 0 to VarCount - 1 do
-                if (VarList[i].address = adr) then
-                begin
-                        result := true;
-                        VarFound := i;
-                        break;
-                end;
+            begin
+              // check whether two ranges [x1:x2] and [y1:y2] overlap
+              //
+              // The only time the ranges DON'T overlap is when
+              // the end of one range is before the beginning of the other.
+              //
+              // So (in C syntax), we want    !(x2 < y1 || x1 > y2)
+              // which is equivalent to        x2 >= y1 && x1 <= y2
+               { writeln ( 'DEBUG IsVarAtAdr: ', adr, '..', (adr+size),
+                        ' * ', VarList[i].varname, ': ',VarList[i].address,
+                        '..', (VarList[i].address  + VarList[i].size) ); }
+              if ( (adr + size >= VarList[i].address)
+              and  (adr < VarList[i].address + VarList[i].size) ) then
+              begin
+                      result := true;
+                      VarFound := i;
+                      break;
+              end;
+            end;
 end;
 
 
@@ -303,13 +402,15 @@ end;
 function AllocVar(xr, at: boolean; size, adr: integer): integer;
 var s: string;
 begin
+        // writeln ( ' DEBUG AllocVar adr <', adr, '>');
         if not xr then
         begin
                 if at then
                 begin
                         result := adr;
-                        if IsVarAtAdr(result{, size}) then
-                        begin
+                        if IsVarAtAdr(result, size) then
+                           Error('Overlapping with '+VarList[VarFound].varname+'!');
+                        { begin
                                 if VarList[VarFound].at then
                                 begin
                                         str(VarList[VarFound].address, s);
@@ -317,7 +418,9 @@ begin
                                 end;
                                 VarList[VarFound].address := VarPos;
                                 inc(VarPos, VarList[VarFound].size);
-                                if size = 2 then if IsVarAtAdr(result+1{, 1}) then
+                                if size = 2 then if IsVarAtAdr(result
+                                   //+1
+                                   , size) then
                                 begin
                                         if VarList[VarFound].at then
                                         begin
@@ -329,12 +432,14 @@ begin
                                 end;
                                 result := adr;
                         end;
+                        }
                 end else
                 begin
-                        while IsVarAtAdr(VarPos{, size}) do
-                                inc(VarPos, VarList[VarFound].size{ 1});
-                        result := VarPos;
-                        inc(VarPos, size);
+                     // look for first free position
+                     while IsVarAtAdr(VarPos, size) do
+                           inc(VarPos);//, VarList[VarFound].size);
+                     result := VarPos;
+                     inc(VarPos, size);
                 end;
                 //for i:=AllocVar to AllocVar+size-1 do memimg[i] := VarCount;
         end else
@@ -363,10 +468,12 @@ end;
 { Add Variable Declaration }
 
 procedure AddVar(t, typ: string; xr, pnt, loc: boolean);
-var s, litem: string;
+var s, litem, bcd: string;
     temp, arsize: integer;
+    b: char;
 begin
         s := ExtrWord(t);
+
         begin
                 if not FindVar(s) then
                 begin
@@ -386,13 +493,16 @@ begin
                         if (typ = 'byte') or (typ = 'char') then
                                 VarList[VarCount].size := 1
                         else if (typ = 'word') then
-                                VarList[VarCount].size := 2;
+                                VarList[VarCount].size := 2
+                        else if (typ = 'float') then
+                                VarList[VarCount].size := 8
+                        else Error ('Unsupported type: ' + typ) ;
                         if (t <> '') and (t[1] = '[') then
                         begin
                                 s := ExtrCust(t, ']');
                                 //if s[1] <> '[' then Expected('[size]');
                                 delete(s, 1, 1);
-                                arsize := mathparse(s, 16);
+                                arsize := trunc(mathparse(s, 16));
                                 //val(s, arsize, temp);
 //                                if arsize >= 256 then Error('Array too big!');
                                 VarList[VarCount].size := arsize;
@@ -403,7 +513,6 @@ begin
                         //s := ExtrWord(t);
                         if not loc then
                         begin
-
                             if copy(t,1,2) = 'at' then
                             begin
                                 if loc then error('Local vars can''t have "at" assignments!');
@@ -417,7 +526,7 @@ begin
                                 end else
                                         s := t;
                                 //val(s, temp, c);
-                                temp := mathparse(s, 16);
+                                temp := trunc(mathparse(s, 16));
                                 if temp > 95 then xr := true;
                                 VarList[VarCount].Xram := xr;
                                 VarList[VarCount].At := true;
@@ -435,54 +544,97 @@ begin
                             begin
                                 if typ = 'word' then
                                         temp := AllocVar(xr, VarList[VarCount].At, VarList[VarCount].size * 2, -1)
-                                else
-                                        temp := AllocVar(xr, VarList[VarCount].At, VarList[VarCount].size, -1);
+                                else if (typ = 'byte') or (typ = 'char') then
+                                        temp := AllocVar(xr, VarList[VarCount].At, VarList[VarCount].size, -1)
+                                else if typ = 'float' then
+                                        temp := AllocVar(xr, VarList[VarCount].At, VarList[VarCount].size * 8, -1);
                                 VarList[VarCount].address := temp;
                             end;
                             if (t <> '') and (t[1] = '=') then
-                            begin
-                                if Loc then error('Local vars can''t have init values!');
+                            begin // with an init value
+                                // writeln( ' DEBUG AddVar init ' + VarList[VarCount].varname ) ;
+                                if Loc then error('Local vars can''t have init values!'); // why?
                                 if Pnt then error('Pointers can''t have init values!');
                                 delete(t, 1, 1);
-                                if VarList[VarCount].arr and (typ = 'char') then
-                                begin
-                                        delete(t, 1, 1); delete(t, length(t), 1);
-                                        //VarList[VarCount].inits := stringparse(t, size);
-                                        VarList[VarCount].inits := t+chr(0);
-                                        VarList[VarCount].initn := 0;
-                                end else if VarList[VarCount].arr and (typ = 'byte') then
-                                begin
-                                        delete(t, 1, 2); delete(t, length(t), 1);
-                                        t := t + ',';
-                                        litem := ExtrList(t);
-                                        repeat
-                                                VarList[VarCount].inits := VarList[VarCount].inits + chr(mathparse(litem, 8));
-                                                //val(litem, temp, c);
-                                                //VarList[VarCount].inits := VarList[VarCount].inits + chr(temp);
-                                                litem := ExtrList(t);
-                                        until litem = '';
-                                        VarList[VarCount].initn := 0;
-                                end else if VarList[VarCount].arr and (typ = 'word') then
-                                begin
-                                        delete(t, 1, 2); delete(t, length(t), 1);
-                                        t := t + ',';
-                                        litem := ExtrList(t);
-                                        repeat
-                                                VarList[VarCount].inits := VarList[VarCount].inits + chr(mathparse(litem+'/256', 8)) + chr(mathparse(litem+'%256', 8));
-                                                //val(litem, temp, c);
-                                                //VarList[VarCount].inits := VarList[VarCount].inits + chr(temp div 256) + chr(temp mod 256);
-                                                litem := ExtrList(t);
-                                        until litem = '';
-                                        VarList[VarCount].initn := 0;
-                                end else
-                                        //val(t, VarList[VarCount].initn, temp);
-                                        VarList[VarCount].initn := mathparse(t, 16);
-                            end else
+                                if VarList[VarCount].arr then
+                                begin // array
+                                  if(typ = 'char') then
+                                  begin
+                                          delete(t, 1, 1); delete(t, length(t), 1);
+                                          //VarList[VarCount].inits := stringparse(t, size);
+                                          VarList[VarCount].inits := t+chr(0);
+                                          VarList[VarCount].initn := 0;
+                                          VarList[VarCount].initf := 0;
+                                  end else if VarList[VarCount].arr and (typ = 'byte') then
+                                  begin
+                                          delete(t, 1, 2); delete(t, length(t), 1);
+                                          t := t + ',';
+                                          litem := ExtrList(t);
+                                          repeat
+                                                  VarList[VarCount].inits := VarList[VarCount].inits
+                                                                          + chr(trunc(mathparse(litem, 8)));
+                                                  litem := ExtrList(t);
+                                          until litem = '';
+                                          VarList[VarCount].initn := 0;
+                                          VarList[VarCount].initf := 0;
+                                  end else if VarList[VarCount].arr and (typ = 'word') then
+                                  begin
+                                          delete(t, 1, 2); delete(t, length(t), 1);
+                                          t := t + ',';
+                                          litem := ExtrList(t);
+                                          repeat
+                                                  VarList[VarCount].inits := VarList[VarCount].inits
+                                                                          + chr(trunc(mathparse(litem+'/256', 8)))
+                                                                          + chr(trunc(mathparse(litem+'%256', 8)));
+                                                  litem := ExtrList(t);
+                                          until litem = '';
+                                          VarList[VarCount].initn := 0;
+                                          VarList[VarCount].initf := 0;
+                                  end else if VarList[VarCount].arr and (typ = 'float') then
+                                  begin
+                                       delete(t, 1, 2); delete(t, length(t), 1);
+                                       t := t + ',';
+                                       litem := ExtrList(t);
+                                       VarList[VarCount].inits := '';
+                                       repeat
+                                             VarList[VarCount].inits := VarList[VarCount].inits
+                                                               + SharpBCD ( mathparse(  litem, 0 ));
+                                             litem := ExtrList(t);
+                                       until litem = '';
+                                       for b in VarList[VarCount].inits do
+                                           s := s + IntToHex(ord(b),2)+ ' ';
+                                       //writeln ( ' DEBUG AddVar float array : <' + s + '>');
+                                       VarList[VarCount].initn := 0;
+                                       VarList[VarCount].initf := 0;
+                                  end
+                                end
+                                else
+                                begin // not an array
+                                   if not ( typ = 'float' ) then
+                                   begin
+                                      //val(t, VarList[VarCount].initn, temp);
+                                      VarList[VarCount].initn := trunc(mathparse(t, 16)) ;
+                                      VarList[VarCount].initf := 0;
+                                   end
+                                   else if ( typ = 'float' ) then
+                                   begin
+                                      VarList[VarCount].initf := mathparse(t, 0) ; // 0 = floating point
+                                      VarList[VarCount].initn := 0;
+                                      VarList[VarCount].inits := SharpBCD ( VarList[VarCount].initf ) ;
+                                   end;
+                                end;
+                            end else // not init value
                                 VarList[VarCount].initn := -1;
-                                
+                                VarList[VarCount].initf := -1;
+                                if ( typ = 'float' ) then
+                                    VarList[VarCount].inits := SharpBCD ( 0 ) ;
+
                         end else
                         begin
                                 VarList[VarCount].initn := -1;
+                                VarList[VarCount].initf := -1;
+                                if ( typ = 'float' ) then
+                                    VarList[VarCount].inits := SharpBCD ( 0 ) ;
                                 if not procd then
                                 begin
                                         ProcList[currproc].locname[ProcList[currproc].loccnt] := VarList[VarCount].VarName;
@@ -513,9 +665,10 @@ begin
         for i := 0 to ProcCount - 1 do
         if lowercase(ProcList[i].ProcName) = lowercase(t) then
         begin
-                result := true;
-                ProcFound := i;
-                exit;
+              //writeln('Proc found: ' + t);
+              result := true;
+              ProcFound := i;
+              exit;
         end;
 end;
 
@@ -523,7 +676,7 @@ end;
 {--------------------------------------------------------------}
 { Add Procedure Declaration }
 
-procedure AddProc(t, c, p: string; pc: integer; hr, wd: boolean);
+procedure AddProc(t, c, p: string; pc: integer; hr, wd: boolean; rt: string);
 var s: string;
 begin
         s := ExtrWord(t);
@@ -534,9 +687,11 @@ begin
                 ProcList[ProcCount].Params := p;
                 ProcList[ProcCount].Parcnt := pc;
                 ProcList[ProcCount].HasReturn := hr;
+                ProcList[ProcCount].ReturnType := rt;
                 ProcList[ProcCount].ReturnIsWord := wd;
+                ProcList[ProcCount].IsCalled := false;
                 inc(ProcCount);
-//                writeln('Proc add: NAME: ' + s);
+                writeln('Proc add: NAME: ' + s);
         end else
                 Error('Procedure already declared: ' + s);
 end;
@@ -587,10 +742,15 @@ end;
 { Store the Primary Register to a Variable }
 
 procedure StoreVariable(Name: string);
-var typ: string;
+var typ, lb: string;
     xr,arr,loc: boolean;
     adr: integer;
 begin
+
+   writeln (' DEBUG StoreVariable ' + name,
+                 ' typ: ', typ ,
+                 ' arr: ', arr ) ;
+
         if not FindVar(Name) then error('Variable not defined: '+name);
         typ := varlist[varfound].typ;
         adr := varlist[varfound].address;
@@ -600,6 +760,7 @@ begin
 
         if not arr then
         begin
+        // not an array
             if (typ='char') or (typ='byte') then
             begin
 //                if isword then
@@ -629,8 +790,8 @@ begin
                         else
                                 writln( #9'LIDP'#9+name+#9'; Store result in '+name);
                         writln( #9'STD')
-                end;
-            end else
+                end ;
+            end else if (typ='word') then
             begin
                 if not xr then
                 begin
@@ -672,9 +833,37 @@ begin
                                 writln( #9'LIDP'#9+name+'+1');
                         writln( #9'STD'#9#9'; HB');
                 end;
-            end;
+            end else if (typ='float') then
+            begin // assuming value is in temporary storage point 'tempFloat'
+                if not xr then
+                begin // destination: register memory
+                    if not loc then
+                    begin
+                        if adr < 64 then
+                             writln( #9'LP'#9'0x'+IntToHex(adr,2)+#9'; Store to register float variable '+name )
+                        else
+                             writln( #9'LIP'#9'0x'+IntToHex(adr,2)+#9'; Store to register float variable '+name );
+                        writln( #9'LIQ 0x'+IntToHex(tempFloat,2)+' ; temporary storage' );
+                        writln( #9'LII 7'); // 8 bytes
+                        writln( #9'MVW ; (Q) -> (P), I+1 times');
+                    end else
+                    begin // Local
+                        Error ( ' Local float storing unsupported yet ');
+                    end;
+                end else
+                begin
+                    // destination: xram or code space
+                    if adr <> -1 then
+                       writln( #9'LIDP'#9+'0x'+inttohex(adr,4)+#9'; Store to float var '+name )
+                    else
+                       writln( #9'LIDP'#9+name+#9'; Store to float var '+name );
+                    writln( #9'LP 0x'+IntToHex(tempFloat,2)+' ; temporary storage' );
+                    writln( #9'LII 7');
+                    writln( #9'EXWD ; (DP) <-> (P), I+1 times' );
+                end;
+            end ;
         end else
-        begin
+        begin  // arrays
             if (typ='char') or (typ='byte') then
             begin
                 if not xr then
@@ -710,7 +899,7 @@ begin
                         writln( #9'POP'); dec(pushcnt);
                         writln( #9'IYS');
                 end;
-            end else
+            end else if (typ='word') then
             begin
                 if not xr then
                 begin
@@ -757,7 +946,10 @@ begin
                         writln( #9'EXAB');
                         writln( #9'IYS');
                 end;
-            end;
+            end else if (typ='float') then
+            begin
+                 Error ( ' Float array storing unsupported yet ');
+            end ;
         end;
 end;
 {--------------------------------------------------------------}
@@ -768,17 +960,41 @@ end;
 
 procedure LoadConstant(n: string);
 var i, c: integer;
+var s, lb: string;
+var f: float;
 begin
-    if isword then
+    writeln(' DEBUG LoadConstant <'+n+'> (', optype, ')');
+    if optype = floatp then
+    begin
+        f := mathparse ( n, 0 );
+        //writeln(' DEBUG LoadConstant f <',f,'>');
+        if not (f = 0) then
+        begin
+          s := SharpBCD ( f );
+          lb := 'C_'+NewLabel;
+          varfcode ( s, lb );
+          writln( #9'LIDP'#9+lb+' ; Load floating-point constant: '+n );
+          writln( #9'LP'#9'0x'+IntToHex(tempFloat,2)+' ; temporary store point' );
+          writln( #9'LII 07');
+          writln( #9'MVWD' );
+        end else
+        begin
+          writln( #9'LIA 00');
+          writln( #9'LP'#9'0x'+IntToHex(tempFloat,2)+' ; temporary store point' );
+          writln( #9'LII 07');
+          writln( #9'FILM' );
+        end;
+    end else
+    if optype = word then
     begin
         writln( #9'LIA'#9'LB('+n+')'#9'; Load constant LB '+n);
         writln( #9'LIB'#9'HB('+n+')'#9'; Load constant HB '+n);
     end else
     begin
         val(n, i, c);
-	if (c = 0) and (i = 0) then
+	{ if (c = 0) and (i = 0) then
                 writln( #9'RA'#9#9'; Load 0')
-        else
+        else      }
                 writln( #9'LIA'#9+n+#9'; Load constant '+n);
     end;
 end;
@@ -792,6 +1008,10 @@ var typ: string;
     xr,arr,loc: boolean;
     adr: integer;
 begin
+        writeln (' DEBUG LoadVariable ' + name,
+                 ' typ: ', typ ,
+                 ' loc: ', loc ,
+                 ' arr: ', arr ) ;
         if not FindVar(Name) then
                 error('Variable not defined: '+name);
         typ := varlist[varfound].typ;
@@ -814,7 +1034,7 @@ begin
                                 writln( #9'LIP'#9+inttostr(adr)+#9'; Load variable '+name);
                         writln( #9'LDM');
                     end else
-                    begin // Local char
+                    begin // Local char or byte
                         writln(#9'LDR');
                         writln(#9'ADIA'#9+inttostr(adr+2+pushcnt));
                         writln(#9'STP');
@@ -822,16 +1042,23 @@ begin
                     end;
                 end else
                 begin
-                        if adr <> -1 then
-                                writln( #9'LIDP'#9+inttostr(adr)+#9'; Load variable '+name)
-                        else
-                                writln( #9'LIDP'#9+name+#9'; Load variable '+name);
-                        writln( #9'LDD');
+                    if loc then
+                       Error ( ' Unsupported Xram Local loading' );
+                    if adr <> -1 then
+                            writln( #9'LIDP'#9+inttostr(adr)+#9'; Load variable '+name)
+                    else
+                            writln( #9'LIDP'#9+name+#9'; Load variable '+name);
+                    writln( #9'LDD');
                 end;
-                if isword then
-                        writln( #9'LIB'#9'0');
-            end else
+                if optype = floatp then
+                   Error ( ' Unsupported mixed operations' );
+                if optype = word then
+                   // cast a byte to word
+                   writln( #9'LIB'#9'0');
+            end else if (typ='word') then
             begin
+                if optype = floatp then
+                   Error ( ' Unsupported mixed operations' );
                 if not xr then
                 begin
                     if not loc then
@@ -856,23 +1083,51 @@ begin
                     end;
                 end else
                 begin
-                        if adr <> -1 then
-                                writln( #9'LIDP'#9+inttostr(adr+1)+#9'; Load 16bit variable '+name)
-                        else
-                                writln( #9'LIDP'#9+name+'+1'#9'; Load 16bit variable '+name);
-                        writln( #9'LDD'#9#9'; HB');
-                        writln( #9'EXAB');
-                        if (adr <> -1) and ((adr + 1) div 256 = adr div 256) then
-                                writln( #9'LIDL'#9'LB('+inttostr(adr)+')')
-                        else if adr <> -1 then
-                                writln( #9'LIDP'#9+inttostr(adr))
-                        else
-                                writln( #9'LIDP'#9+name);
-                        writln( #9'LDD'#9#9'; LB');
+                    if loc then
+                       Error ( ' Unsupported Xram Local loading' );
+                    if adr <> -1 then
+                            writln( #9'LIDP'#9+inttostr(adr+1)+#9'; Load 16bit variable '+name)
+                    else
+                            writln( #9'LIDP'#9+name+'+1'#9'; Load 16bit variable '+name);
+                    writln( #9'LDD'#9#9'; HB');
+                    writln( #9'EXAB');
+                    if (adr <> -1) and ((adr + 1) div 256 = adr div 256) then
+                            writln( #9'LIDL'#9'LB('+inttostr(adr)+')')
+                    else if adr <> -1 then
+                            writln( #9'LIDP'#9+inttostr(adr))
+                    else
+                            writln( #9'LIDP'#9+name);
+                    writln( #9'LDD'#9#9'; LB');
+                end;
+            end else if (typ='float') then
+            begin
+                if not ( optype = floatp ) then
+                   Error ( ' Unsupported mixed operations' );
+                if not xr then
+                begin
+                    if not loc then
+                    begin
+                        writln( #9'LIQ 0x'+IntToHex(adr,2)+#9'; from here');
+                        writln( #9'LP'#9'0x'+IntToHex(tempFloat,2)+#9'; to temporary store' );
+                        writln( #9'LII 7'); // 8 bytes
+                        writln( #9'MVW ; (Q) -> (P), I+1 times');
+                    end
+                    else
+                        Error ( ' Local Float loading not supported yet ' );
+                end else begin
+                    if loc then
+                       Error ( ' Unsupported Xram Local loading' );
+                    if adr <> -1 then
+                       writln( #9'LIDP'#9+'0x'+inttohex(adr,4)+#9'; Load variable '+name)
+                    else
+                       writln( #9'LIDP'#9+name+'+1'#9'; Load variable '+name);
+                    writln( #9'LP'#9'0x'+inttohex(tempFloat,2)+' ; to temporary store' );
+                    writln( #9'LII 07');
+                    writln( #9'MVWD ; (DP) -> (P), I+1 times' );
                 end;
             end;
         end else
-        begin
+        begin // arrays
             if (typ='char') or (typ='byte') then
             begin
                 if not xr then
@@ -906,50 +1161,9 @@ begin
                         writln( #9'ADB');
                         writln( #9'IXL');
                 end;
-            end else
+            end else if (typ='float') then
             begin
-                if not xr then
-                begin
-                        writln( #9'RC');
-                        writln( #9'SL');
-                        writln( #9'LII'#9+inttostr(adr)+#9'; Store array element from '+name);
-                        writln( #9'LP'#9'0');
-                        writln( #9'ADM');
-                        writln( #9'EXAM');
-                        writln( #9'STP');
-                        writln( #9'LDM');
-                        writln( #9'EXAB');
-                        writln( #9'INCP');
-                        writln( #9'LDM');
-                        writln( #9'EXAB');
-                end else
-                begin
-                        writln( #9'RC');
-                        writln( #9'SL');
-                        writln( #9'PUSH'#9#9'; Load array element from '+name); inc(pushcnt);
-                        writln( #9'LP'#9'5'#9'; HB of address');
-                        if adr <> -1 then
-                        begin
-                                writln( #9'LIA'#9'HB('+inttostr(adr)+'-1)');
-                                writln( #9'EXAM');
-                                writln( #9'LP'#9'4'#9'; LB');
-                                writln( #9'LIA'#9'LB('+inttostr(adr)+'-1)');
-                        end else
-                        begin
-                                writln( #9'LIA'#9'HB('+name+'-1)');
-                                writln( #9'EXAM');
-                                writln( #9'LP'#9'4'#9'; LB');
-                                writln( #9'LIA'#9'LB('+name+'-1)');
-                        end;
-                        writln( #9'EXAM');
-                        writln( #9'POP'); dec(pushcnt);
-                        writln( #9'LIB'#9'0');
-                        writln( #9'ADB');
-                        writln( #9'IXL');
-                        writln( #9'EXAB');
-                        writln( #9'IXL');
-                        writln( #9'EXAB');
-                end;
+                Error ( ' Float array loading not supported yet ' );
             end;
         end;
 end;
@@ -961,9 +1175,9 @@ end;
 procedure Add;
 begin
   Rd(Look, tok); tok := trim(tok);
-	Push;
-	Term;
-	PopAdd;
+  Push;
+  Term;
+  PopAdd;
 end;
 
 
@@ -973,9 +1187,9 @@ end;
 procedure Subtract;
 begin
   Rd(Look, tok); tok := trim(tok);
-	Push;
-	Term;
-	PopSub;
+  Push;
+  Term;
+  PopSub;
 end;
 {--------------------------------------------------------------}
 
@@ -986,9 +1200,9 @@ end;
 procedure Multiply;
 begin
   Rd(Look, tok); tok := trim(tok);
-	Push;
-	Term;
-	PopMul;
+  Push;
+  Term;
+  PopMul;
 end;
 
 
@@ -998,9 +1212,9 @@ end;
 procedure Divide;
 begin
   Rd(Look, tok); tok := trim(tok);
-	Push;
-	Term;
-	PopDiv;
+  Push;
+  Term;
+  PopDiv;
 end;
 {--------------------------------------------------------------}
 
@@ -1011,9 +1225,9 @@ end;
 procedure _Or;
 begin
   Rd(Look, tok); tok := trim(tok);
-	Push;
-	Term;
-	PopOr;
+  Push;
+  Term;
+  PopOr;
 end;
 
 
@@ -1023,9 +1237,9 @@ end;
 procedure ShiftR;
 begin
   Rd(Look, tok); tok := trim(tok);
-	Push;
-	Term;
-	PopSr;
+  Push;
+  Term;
+  PopSr;
 end;
 
 
@@ -1035,14 +1249,14 @@ end;
 procedure ShiftL;
 begin
   Rd(Look, tok); tok := trim(tok);
-	Push;
-	Term;
-	PopSl;
+  Push;
+  Term;
+  PopSl;
 end;
 
 
 {--------------------------------------------------------------}
-{ Parse and Translate a Subtraction Operation }
+{ Parse and Translate a Boolean Xor Operation }
 
 procedure _Xor;
 begin
@@ -1095,7 +1309,10 @@ begin
   end
   else if IsDigit(Look) then
   begin
-    LoadConstant(GetNumber)
+    if optype = floatp then
+        LoadConstant(GetFloat)
+    else
+        LoadConstant(GetNumber);
   end
   else if IsAlpha(Look)then
   begin
@@ -1214,7 +1431,7 @@ end;
 
 procedure NotFactor;
 begin
-	if Look = '!' then
+  if Look = '!' then
   begin
     Rd(Look, tok); tok := trim(tok);
     Factor;
@@ -1263,11 +1480,11 @@ end;
 procedure SignedTerm;
 var Sign: char;
 begin
+
 	Sign := Look;
+        //writeln (' DEBUG SignedTerm Sign  <', Sign,'>' );
 	if IsAddop(Look) then
-        begin
-                Rd(Look, tok); tok := trim(tok);
-        end;
+           Rd(Look, tok); tok := trim(tok);
 	Term;
 	if Sign = '-' then Negate;
 end;
@@ -1282,17 +1499,16 @@ begin
         tok := look + tok;
         for i := 0 to varcount - 1 do
                 if find_text(varlist[i].varname, tok) > 0 then
-                        if {not varlist[i].pointer and} (varlist[i].typ = 'word') then
-                                isword := true
-                        else if varlist[i].pointer and (varlist[i].pnttyp = 'word') then
-                                isword := true;
+                        if (varlist[i].typ = 'word')
+                        or ( ( varlist[i].pointer ) and (varlist[i].pnttyp = 'word') ) then
+                           optype := word;
         i := 1;
         while i < length(Tok) do
         begin
                 if copy(Tok,i,2) = '<<' then
-                        begin delete(tok,i,1); tok[i]:='$'; end
+                        begin writln ('; << ') ; delete(tok,i,1); tok[i]:=SL; end
                 else if copy(Tok,i,2) = '>>' then
-                        begin delete(tok,i,1); tok[i]:='§'; end
+                        begin writln ('; >> ') ; delete(tok,i,1); tok[i]:=SR; end
                 else if copy(Tok,i,2) = '++' then
                         begin delete(tok,i,1); tok[i]:=PP; end
                 else if copy(Tok,i,2) = '--' then
@@ -1303,17 +1519,20 @@ begin
                         inc(i);
         end;
         rd(Look, tok);
+        //writeln (' DEBUG Expression Look, Tok <', Look, '> <',  Tok, '>' );
 
         SignedTerm;
-        while IsAddop(Look) do
+        while IsAddop(Look) do  begin
+            writeln (' DEBUG Expression Look <', Look, '>' );
 		case Look of
 			'+': Add;
 			'-': Subtract;
 			'|': _Or;
-      '~': _Xor;
-			'§': ShiftR;
-			'$': ShiftL;
-		end;
+                        '~': _Xor;
+			SR:  ShiftR;
+			SL:  ShiftL;
+                end;
+        end;
 end;
 {--------------------------------------------------------------}
 
@@ -1325,9 +1544,11 @@ procedure Assignment;
 var Name,temp,s: string;
     fv: boolean;
     forml: string;
-    i, p: integer;
+    i, p, a: integer;
 begin
+
         isword := false;
+        isfloat := false;
         p := 0;
         if copy(tok, 1, 1) = '*' then
         begin
@@ -1340,13 +1561,13 @@ begin
         begin
             if p = REF then
             begin
-                if not varlist[varfound].pointer and (varlist[varfound].typ = 'word') then
-                        isword := true;
-                if varlist[varfound].pointer and (varlist[varfound].pnttyp = 'word') then
-                        isword := true;
+                if ( not varlist[varfound].pointer and (varlist[varfound].typ = 'word') )
+                or ( varlist[varfound].pointer and (varlist[varfound].pnttyp = 'word') ) then
+                        optype := word;
             end else
-                if varlist[varfound].typ = 'word' then
-                        isword := true;
+            if varlist[varfound].typ = 'word' then optype := word
+            else if varlist[varfound].typ = 'float' then optype := floatp
+            else optype := byte;
         end else
             error('Var '+name+' not declared!');
         s := '';
@@ -1366,18 +1587,19 @@ begin
                 end else
                 if Look in ['+','-'] then
                 begin
-                        if findvar(name) and not (varlist[varfound].typ = 'word') then
+                        if findvar(name)
+                        and ((varlist[varfound].typ = 'char') or (varlist[varfound].typ = 'byte')) then
                         begin
                                 if look = '+' then writln(#9'; '+name+'++') else writln(#9'; '+name+'--');
-                                i := varlist[varfound].address;
-                                if i = 0 then begin if Look='+' then writln(#9'INCI') else writln(#9'DECI'); end
-                                else if i = 1 then begin if Look='+' then writln(#9'INCJ') else writln(#9'DECJ'); end
-                                else if i = 2 then begin if Look='+' then writln(#9'INCA') else writln(#9'DECA'); end
-                                else if i = 3 then begin if Look='+' then writln(#9'INCB') else writln(#9'DECB'); end
-                                else if i = 8 then begin if Look='+' then writln(#9'INCK') else writln(#9'DECK'); end
-                                else if i = 9 then begin if Look='+' then writln(#9'INCL') else writln(#9'DECL'); end
-                                else if i = 10 then begin if Look='+' then writln(#9'INCM') else writln(#9'DECM'); end
-                                else if i = 11 then begin if Look='+' then writln(#9'INCN') else writln(#9'DECN'); end
+                                a := varlist[varfound].address;
+                                if a = 0 then begin if Look='+' then writln(#9'INCI') else writln(#9'DECI'); end
+                                else if a = 1 then begin if Look='+' then writln(#9'INCJ') else writln(#9'DECJ'); end
+                                else if a = 2 then begin if Look='+' then writln(#9'INCA') else writln(#9'DECA'); end
+                                else if a = 3 then begin if Look='+' then writln(#9'INCB') else writln(#9'DECB'); end
+                                else if a = 8 then begin if Look='+' then writln(#9'INCK') else writln(#9'DECK'); end
+                                else if a = 9 then begin if Look='+' then writln(#9'INCL') else writln(#9'DECL'); end
+                                else if a = 10 then begin if Look='+' then writln(#9'INCM') else writln(#9'DECM'); end
+                                else if a = 11 then begin if Look='+' then writln(#9'INCN') else writln(#9'DECN'); end
                                 else
                                 begin
                                         Loadvariable(name);
@@ -1398,34 +1620,38 @@ begin
         tok := trim(tok); forml := tok;
         if copy(forml,1,1) = '=' then delete(forml,1,1);
         Rd(Look, tok); tok := trim(tok);
-
         fv := false;
         for i := 0 to varcount - 1 do
                 if find_text(varlist[i].varname, forml) > 0 then
                 begin
-                        if not varlist[i].pointer and (varlist[i].typ = 'word') then
-                                isword := true;
-                        if varlist[i].pointer and (varlist[i].pnttyp = 'word') then
-                                isword := true;
+                        //writeln (' DEBUG find_text: ' + forml);
+                        if ( not varlist[i].pointer and (varlist[i].typ = 'word') )
+                        or ( varlist[i].pointer and (varlist[i].typ = 'float') )
+                        or ( varlist[i].pointer and (varlist[i].pnttyp = 'word') ) then
+                                optype := word;
                         fv := true;
                 end;
+
         if not fv then
                 for i := 0 to proccount - 1 do
                         if find_text(proclist[i].procname, forml) > 0 then
                                 fv := true;
 
         if fv then
-	              Expression
+	        Expression
         else
+                //writeln (' DEBUG Assignment - LoadConstant: ' + forml );
                 LoadConstant(forml);
+
         if s <> '' then
         begin
+                writeln (' DEBUG Assignment - push look tok ' , look, ' ', tok );
                 Push;
                 tok := s;
                 Rd(Look, Tok); tok := trim(tok);
                 Expression;
         end;
-	      if p = 0 then
+	if p = 0 then
                 StoreVariable(Name)
         else if p = REF then
         begin
@@ -1440,7 +1666,6 @@ begin
                                 writln(#9'EXAB');
                                 writln(#9'PUSH'); inc(pushcnt);
                         end;
-
                         LoadVariable(name);
                         if not varlist[varfound].Pointer then
                                         error('This var ('+name+') is not a pointer!');
@@ -1544,7 +1769,7 @@ end;
 
 
 {--------------------------------------------------------------}
-{ Recognize and Translate a Boolean OR }
+{ Recognize and Translate a Boolean AND }
 
 procedure BoolAnd;
 begin
@@ -1726,7 +1951,9 @@ begin
         if tok <> '' then
         begin
                 Rd(Look, tok); tok := trim(tok);
-                isword := proclist[currproc].returnisword;
+                //isword := proclist[currproc].returnisword;
+                if proclist[currproc].returnisword then optype := word
+                else if proclist[currproc].returntype = 'float' then optype := floatp;
                 Expression;
         end;
         writln( #9'RTN'#9#9'; Return');
@@ -1811,6 +2038,7 @@ begin
         ExitLabel := L2;
         PostLabel(L1);
         getToken(MODESTR, dummy);
+        { writeln (' DEBUG FOR 0 ' + dummy);  }
         BoolExpression;
         BranchFalse(L2);
         if trim(dummy)[1] <> ')' then
@@ -1821,11 +2049,15 @@ begin
                         delete(tok, length(tok), 1);
                         tok := trim(tok);
                         if tok <> '' then
+                        begin
                                  dummy := tok +';'+ dummy;
+                                 { writeln (' DEBUG FOR 1 ' + dummy);   }
+                        end;
                 end
                 else begin
                         temp := extrcust(tok, ')');
                         dummy := temp + ';' + tok + ';}' + dummy;
+                        { writeln (' DEBUG FOR 2 ' + dummy);  }
                         inc(level);
                 end;
         end else
@@ -1835,6 +2067,7 @@ begin
                 begin
                         delete(tok, 1, 1); tok := trim(tok);
                         dummy := tok + ';}' + dummy;
+                        { writeln (' DEBUG FOR 3 ' + dummy);     }
                         inc(level);
                 end;
         end;
@@ -1906,11 +2139,13 @@ var i, c, a: integer;
 begin
         if tok = '' then exit;
         temp := extrword(tok);
-//        s := tok;          // Nur den Parameterblock der ersten Funktion extrahieren!!!
+//      s := tok;          // Nur den Parameterblock der ersten Funktion extrahieren!!!
+                           // Extract only the parameter block of the first function!!!
         a := 0;
         Rd(Look, Tok); tok := trim(tok);
         if findproc(temp) then
         begin
+                proclist[procfound].IsCalled := true;
                 i := proclist[procfound].parcnt;
                 if i > 0 then
                 begin
@@ -1923,12 +2158,19 @@ begin
                                     varlist[varfound].address := a;
                                 end else
                                     error('Parameter error!');}
-                                if ProcList[ProcFound].partyp[c] <> 'word' then
+                                if ( ProcList[ProcFound].partyp[c] = 'char' )
+                                   or ( ProcList[ProcFound].partyp[c] = 'byte') then
                                 begin
                                     isword := false; inc(a);
-                                end else
+                                    optype := byte;
+                                end else if ProcList[ProcFound].partyp[c] = 'word' then
                                 begin
                                     isword := true; inc(a, 2);
+                                    optype := word;
+                                end else if ProcList[ProcFound].partyp[c] = 'float' then
+                                begin
+                                    isword := false; inc(a, 8);
+                                    optype := floatp;
                                 end;
                                 Expression;
                                 Push;
@@ -1966,12 +2208,22 @@ begin
                 begin
                         for c := 0 to i - 1 do
                         begin
-                                if ProcList[ProcFound].loctyp[c] <> 'word' then
+                                if ((ProcList[ProcFound].loctyp[c] = 'char') or
+                                    (ProcList[ProcFound].loctyp[c] = 'byte')) then
                                 begin
-                                    isword := false; inc(a);
-                                end else
+                                    isword := false;
+                                    optype := byte;
+                                    inc(a);
+                                end else if ProcList[ProcFound].loctyp[c] = 'word' then
                                 begin
-                                    isword := true; inc(a, 2);
+                                    isword := true;
+                                    optype := word;
+                                    inc(a, 2);
+                                end else if ProcList[ProcFound].loctyp[c] = 'float' then
+                                begin
+                                    isword := false;
+                                    optype := floatp;
+                                    inc(a, 8);
                                 end;
                                 Push;
                                 {if findvar(ProcList[ProcFound].locname[c]) then
@@ -1983,37 +2235,45 @@ begin
                 end;
                 writln( #9'CALL'#9+temp+#9'; Call procedure '+temp);
                 if a > 0 then
-                begin
-                        if proclist[procfound].returnisword then
-                        begin
-                                writln( #9'LP'#9'0');
-                                writln( #9'EXAM');
-                                writln( #9'LDR');
-                                writln( #9'ADIA'#9+inttostr(a)); dec(pushcnt, a);
-                                writln( #9'STR');
-                                writln( #9'EXAM');
-                        end else
-                        if proclist[procfound].hasreturn then
-                        begin
+                begin   {
+                     if proclist[procfound].hasreturn then
+                          if ( ( proclist[procfound].returntype = 'word' ) or
+                               ( proclist[procfound].returntype = 'float' ) ) then
+                          begin
+                                  writln( #9'LP'#9'0');
+                                  writln( #9'EXAM');
+                                  writln( #9'LDR');
+                                  writln( #9'ADIA'#9+inttostr(a)); dec(pushcnt, a);
+                                  writln( #9'STR');
+                                  writln( #9'EXAM');
+                          end else
+                          if ( ( proclist[procfound].returntype = 'char' ) ) or
+                             ( ( proclist[procfound].returntype = 'byte' ) ) then
+                          begin
+                                // can't see difference wrt to word or float...
                                 writln( #9'EXAB');
                                 writln( #9'LDR');
                                 writln( #9'ADIA'#9+inttostr(a)); dec(pushcnt, a);
                                 writln( #9'STR');
                                 writln( #9'EXAB');
-                        end else
+                          end;
+                        else
                         begin
+                        }
                             if a < 4 then
                                 for i := 1 to a do
                                     begin writln( #9'POP'); dec(pushcnt); end
                             else
                             begin
+                                writln( #9'EXAB');
                                 writln( #9'LDR');
                                 writln( #9'ADIA'#9+inttostr(a)); dec(pushcnt, a);
                                 writln( #9'STR');
+                                writln( #9'EXAB');
                             end;
-                        end;
+                        //end;
                 end;
-//                tok := s;
+//              tok := s;
                 rd(look, tok);
         end else
                 Expected('procedure call');
@@ -2035,9 +2295,19 @@ begin
         if not VarList[VarFound].local then error('Var '+name+' not local!');
         m := 0;
         if pc > 0 then for i := 0 to pc - 1 do
-                if ProcList[currproc].partyp[i] = 'word' then inc(m, 2) else inc(m);
+                if ProcList[currproc].partyp[i] = 'float' then inc(m, 8)
+                else if ProcList[currproc].partyp[i] = 'word' then inc(m, 2)
+                else if ((ProcList[currproc].partyp[i] = 'byte') or
+                         (ProcList[currproc].partyp[i] = 'char')) then inc(m)
+                else Error ('Invalid parameter type <' + ProcList[currproc].partyp[i] + '> in '
+                      + ProcList[currproc].ProcName );
         if lc > 0 then for i := 0 to lc - 1 do
-                if ProcList[currproc].loctyp[i] = 'word' then inc(m, 2) else inc(m);
+                if ProcList[currproc].loctyp[i] = 'float' then inc(m, 8)
+                else if ProcList[currproc].loctyp[i] = 'word' then inc(m, 2)
+                else if ((ProcList[currproc].loctyp[i] = 'byte') or
+                         (ProcList[currproc].loctyp[i] = 'char')) then inc(m)
+                else Error ('Invalid local var type <' + ProcList[currproc].partyp[i] + '> in '
+                     + ProcList[currproc].ProcName );
         a := 1;
         if pc > 0 then for i := 0 to pc - 1 do
         begin
@@ -2045,7 +2315,10 @@ begin
                 if not Findvar(name) then error('Var '+name+' not declared!');
                 if not VarList[VarFound].local then error('Var '+name+' not local!');
                 VarList[VarFound].address := m - a;
-                inc(a); if ProcList[currproc].partyp[i] = 'word' then inc(a);
+                if ProcList[currproc].partyp[i] = 'float' then inc(a, 8)
+                else if ProcList[currproc].partyp[i] = 'word' then inc(a, 2)
+                else if ((ProcList[currproc].partyp[i] = 'byte') or
+                         (ProcList[currproc].partyp[i] = 'char')) then inc(a);
         end;
         if lc > 0 then for i := 0 to lc - 1 do
         begin
@@ -2053,7 +2326,10 @@ begin
                 if not Findvar(name) then error('Var '+name+' not declared!');
                 if not VarList[VarFound].local then error('Var '+name+' not local!');
                 VarList[VarFound].address := m - a;
-                inc(a); if ProcList[currproc].loctyp[i] = 'word' then inc(a);
+                if ProcList[currproc].loctyp[i] = 'float' then inc(a, 8)
+                else if ProcList[currproc].loctyp[i] = 'word' then inc(a, 2)
+                else if ((ProcList[currproc].loctyp[i] = 'byte') or
+                         (ProcList[currproc].loctyp[i] = 'char')) then inc(a);
         end;
 end;
 
@@ -2061,14 +2337,22 @@ end;
 { Parse and Translate a Block }
 
 procedure Block;
-var Name: string;
+var Name, name2: string;
 begin
     repeat
         getToken(MODESTR, dummy);
         tok := trim(tok);
+        // The following doesn't allow var name starting with a type name
+        // e.g. 'floatX' is confused with 'float'
+        // try using GetName() instead?
         name := copy(tok, 1, 5);
-        if ((Name = 'byte ') or (Name = 'char ') or (Name = 'word ')) then   // Local var definition
-                vardecl
+        //writeln ( ' DEBUG Block name <',name,'> tok <',tok,'>' ) ;
+        if ((trim(name) = 'byte' )
+             or (trim(name) = 'char')
+             or (trim(name) = 'word')
+             or (trim(name) = 'float')) then
+              // Local var definition
+              vardecl
         else if firstp then
                 begin firstp := false; repadr; end;
         if tok <> '' then
@@ -2132,31 +2416,32 @@ function vardecl: string;
 var Name, Typ, t: string;
     xr, p, l: boolean;
 begin
-                        Name := ExtrWord(Tok);
-                        Typ := Name;
-                        Tok := Tok + ',';
-                        xr := false;
-                        repeat
-                                t := ExtrList(Tok);
-                                Name := trim(ExtrWord(t));
-                                p := false;
-                                if pos('*', name) = 1 then
-                                begin
-                                        p := true;
-                                        delete(name, 1, 1); name := trim(name);
-                                end;
-                                if Name = 'xram' then
-                                begin
-                                        xr := true;
-                                        Name := ExtrWord(t);
-                                end;
-                                if t <> '' then
-                                        Name := Name + ' ' + t;
-                                if Level = 0 then l := false else l := true;
-                                if l then varlist[varcount].locproc := currproc;
-                                result := Name;
-                                AddVar(Name, Typ, xr, p, l);  // Global var definition
-                        until Tok = '';
+      //  writeln ( ' DEBUG  vardecl <'+Tok+'>');
+          Name := ExtrWord(Tok);
+          Typ := Name;
+          Tok := Tok + ',';
+          xr := false;
+          repeat
+                  t := ExtrList(Tok);
+                  Name := trim(ExtrWord(t));
+                  p := false;
+                  if pos('*', name) = 1 then
+                  begin
+                          p := true;
+                          delete(name, 1, 1); name := trim(name);
+                  end;
+                  if Name = 'xram' then
+                  begin
+                          xr := true;
+                          Name := ExtrWord(t);
+                  end;
+                  if t <> '' then
+                          Name := Name + ' ' + t;
+                  if Level = 0 then l := false else l := true;
+                  if l then varlist[varcount].locproc := currproc;
+                  result := Name;
+                  AddVar(Name, Typ, xr, p, l);  // Global var definition
+          until Tok = '';
 end;
 {--------------------------------------------------------------}
 
@@ -2165,19 +2450,26 @@ end;
 { Do First Scan }
 
 procedure FirstScan(filen: string);
-var Name, name2, t, temp, s: string;
+var Name, name2, t, temp, s, rettyp: string;
     i: integer;
     hasret: boolean;
 begin
         assignfile(f, filen);
         reset(f);
         GetToken(MODEFILE, dummy);
+        //writeln ( ' DEBUG FirstScan GetToken ', Tok);
         while tok <> '' do
         begin
-                Name := copy(tok,1,4); //ExtrWord(Tok);
-                if (Level = 0) and ((Name = 'byte') or (Name = 'char') or (Name = 'word')) then
+            // the following limits procedure and variable names
+            // NOT to start with a type name, like e.g. 'byte byteX;'
+                Name := copy(tok,1,5); //ExtrWord(Tok);
+                if (Level = 0)
+                   and ((trim(Name) = 'byte')
+                       or (trim(Name) = 'char')
+                       or (trim(Name) = 'word')
+                       or (trim(Name) = 'float') ) then
                 begin
-                        delete(tok,1,4); tok:=trim(tok);
+                        delete(tok,1,Length(trim(Name))); tok:=trim(tok);
                         Tok := Name + ' ' + Tok;
                         vardecl;
                 end
@@ -2192,14 +2484,25 @@ begin
                         name2 := ExtrWord(Tok);
                         isword := false;
                         hasret := false;
+                        if name = 'float' then
+                        begin
+                              //Error ( ' Float proc return unsupported yet ' );
+                                rettyp := name;
+                                optype := floatp;
+                                Name := ExtrWord(Tok);
+                                hasret := true;
+                        end else
                         if name = 'word' then
                         begin
+                                rettyp := name;
                                 isword := true;
+                                optype := word;
                                 Name := ExtrWord(Tok);
                                 hasret := true;
                         end else
                         if (name = 'char') or (name = 'byte') then
                         begin
+                                rettyp := name;
                                 Name := ExtrWord(Tok);
                                 hasret := true;
                         end else
@@ -2217,7 +2520,9 @@ begin
                             while s <> '' do
                             begin
                                     tok := ExtrList(s);
-                                    proclist[proccount].partyp[i] := copy(tok, 1, 4);
+                                    //writeln ( ' DEBUG FirstScan proc params tok: ', tok );
+                                    //proclist[proccount].partyp[i] := copy(tok, 1, 4);
+                                    proclist[proccount].partyp[i] := trim(copy(tok, 1, 5));
                                     procd := true;
                                     proclist[proccount].parname[i] := vardecl;
                                     procd := false;
@@ -2230,9 +2535,10 @@ begin
                                 t := t + Look;
                         until Level = 0;
                         delete(t, length(t), 1);
-                        AddProc(Name, trim(t), temp, i, hasret, isword);
+                        AddProc(Name, trim(t), temp, i, hasret, isword, rettyp);
                 end;
 	        GetToken(MODEFILE, dummy);
+                //writeln ( ' DEBUG FirstScan GetToken ', Tok);
         end;
         closefile(f);
         if not FindProc('main') then Error('main not found!');
@@ -2250,6 +2556,7 @@ procedure SecondScan(filen: string);
 var name, typ, s, s2, s3: string;
     at, arr: boolean;
     i, adr, size, value: integer;
+    fval: float;
     f2: textfile;
 begin
         md := MODESTR;
@@ -2258,7 +2565,7 @@ begin
 
         { Write Intro }
         writln( '; pasm file - assemble with pasm!');
-        writln( '; Compiled with lcc v1.0');
+        writln( '; Compiled with lcc v1.1');
         writln('');
         writln( '.ORG'#9+org);
         writln('');
@@ -2274,41 +2581,47 @@ begin
 //        writln( 'JMP'#9'MAIN');
 //        writln('');
 
+        { Variables' initializations }
         for i := 0 to VarCount - 1 do
         begin
                 adr := VarList[i].address;
                 size := VarList[i].size;
                 name := VarList[i].VarName;
                 value := VarList[i].initn;
+                fval := VarList[i].initf;
                 typ := VarList[i].typ;
                 at := VarList[i].at;
                 arr := VarList[i].arr;
-
+                //writeln ( ' DEBUG SecondScan variable: '+ name) ;
                 if VarList[i].xram then
-                begin
+                begin // xram variables
                         if at then
                         begin
-                                if value <> -1 then
-                                        if not arr then
-                                                varxram(value, adr, size, name)
-                                        else
-                                                varxarr(VarList[i].inits, adr, size, name, typ);
-                        end else
-                        begin
-                                if not arr then
-                                        varcode(value, adr, size, name)
-                                else
-                                        varcarr(VarList[i].inits, adr, size, name, typ);
-                        end;
+                          if value <> -1 then
+                              if not arr then
+                                  varxram(value, adr, size, name)
+                              else
+                                  varxarr(VarList[i].inits, adr, size, name, typ);
+                          end else
+                          begin // with an init value
+                                // for float, inits is allocated anyway
+                              if not arr then
+                                 if not (  typ = 'float' ) then varcode(value, adr, size, name)
+                                 else varfcode(VarList[i].inits, name)
+                              else
+                                 if not (  typ = 'float' ) then varcarr(VarList[i].inits, adr, size, name, typ)
+                                 else varfarr(VarList[i].inits, size, name);
+                          end;
                 end else
-                begin
+                begin // register variables
                         if value <> -1 then
                         begin
-                                if not arr then
-                                { Load Register }
-                                        varreg(value, adr, size, name)
-                                else
-                                        varrarr(VarList[i].inits, adr, size, name, typ);
+                            if not arr then
+                                    varreg(value, adr, size, name)
+                            else
+                            begin
+                                    varrarr(VarList[i].inits, adr, size, name, typ);
+                            end;
                         end;
                 end;
         end;
@@ -2317,6 +2630,7 @@ begin
         for i := 0 to proccount - 1 do
                 if proclist[i].procname = 'main' then
                 begin
+                    writeln ( ' DEBUG SecondScan procedure main') ;
                         writln('');
                         //writln(#9'CALL'#9'MAIN');
                         if not nosave then
@@ -2347,7 +2661,9 @@ begin
                 end;
         for i := 0 to proccount - 1 do
                 if proclist[i].procname <> 'main' then
-                begin
+                   if proclist[i].iscalled then
+                   begin
+                        writeln ( ' DEBUG SecondScan procedure ' + proclist[i].procname) ;
                         writln('');
                         writln( proclist[i].procname+':'#9'; Procedure');
                         dummy := proclist[i].proccode;
@@ -2357,10 +2673,12 @@ begin
                         block;
                         if pushcnt <> 0 then
                                 writeln(proclist[i].procname+': Possible Stack corruption!');
+                        writeln ( ' DEBUG SecondScan removelocvars') ;
                         removelocvars(proclist[i].procname);
                         writln( #9'RTN');
                         writln('');
-                end;
+                   end else
+                        writln('; Skipping procedure '+ proclist[i].procname +' (never used)');
 
 
         if (asmcnt > 0) then
@@ -2608,5 +2926,6 @@ begin
         ProcCount := 0;
         VarPos := 8;
 end.
+
 
 

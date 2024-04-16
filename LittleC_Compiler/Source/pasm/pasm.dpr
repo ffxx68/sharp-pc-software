@@ -1,4 +1,9 @@
 program pasm;
+
+{$IFDEF FPC}
+  {$MODE Delphi}
+{$ENDIF}
+
 {$APPTYPE CONSOLE}
 {%File 'ModelSupport\default.txvpck'}
 
@@ -202,7 +207,7 @@ var s: string;
 begin
 	str(cline + 1, s);
 	writeln('Line ' + s + ': ' + t + ' in file ' + cf);
-	halt;
+	halt (1);
 end;
 
 
@@ -226,6 +231,7 @@ procedure addnlabel(l: string);
 begin
 //	if findnlabel(l) then
 //          abort('Label ' + l + ' already defined!');
+        //writeln ( ' *DEBUG* addnlabel ' + l + ' @ ' + IntToStr(codpos) + ', ' + op + ' ' + params) ;
         l := uppercase(l);
 	nlab[nlabcnt] := l;
 	nlabpos[nlabcnt] := codpos;
@@ -274,6 +280,7 @@ procedure addlabel(l: string);
 var tpos: integer;
     bup: boolean;
 begin
+        //writeln(' *DEBUG* addlabel: '+l);
         l := uppercase(l);
 	if findlabel(l) then abort('Label ' + l + ' already defined!');
         writeln('SYMBOL: ' + l + ' - ' + inttostr(codpos + startadr));
@@ -946,7 +953,6 @@ begin
         end
         else
            abort('Unknown OP-code: '+op);
-
         end;
 end;
 
@@ -1006,14 +1012,14 @@ begin
   if not fileexists(fname) then
   begin
     writeln('File '+fname+' not found!');
-    halt;
+    halt (1);
   end;
 	assignfile(datei, fname);
 	reset(datei);
         cf := fname;
         lcnt := 0;
 
-	tok := readline; // Überspringt Leerzeilen und entfernt Kommentare
+	tok := readline; // Ãœberspringt Leerzeilen und entfernt Kommentare
 	while (not eof(datei)) or (tok <> '') do
 	begin
             if pos('.endif', tok) = 0 then
@@ -1089,12 +1095,15 @@ begin
                         if fileexists(params) then
                         begin
                                 parsefile(params);
-                        end else abort('Include file ' + params + ' not found!');
+                        end else
+                        begin
+                                abort('Include file ' + params + ' not found!');
+                        end;
                 end
                 else
                         doasm;
             end;
-            tok := readline; // Überspringt Leerzeilen und entfernt Kommentare
+            tok := readline; // Ãœberspringt Leerzeilen und entfernt Kommentare
 	end;
 
 	closefile(datei);
@@ -1166,6 +1175,7 @@ end;
 
 
 begin
+        ExitCode := 0;
         writeln('pasm v1.1 - Assembler for Pocket Computers with SC61860 CPU');
         writeln('(c) Simon Lehmayr 2004');
 	if paramcount < 2 then
@@ -1178,6 +1188,7 @@ begin
         end;
 
         parsefile(paramstr(1));
+
         if nlabcnt > 0 then
         begin
           for i := 0 to nlabcnt - 1 do

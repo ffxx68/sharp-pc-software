@@ -1,0 +1,8 @@
+sdasm.lpi Note: Aggiunte le definizioni -dBorland -dVer150 -dDelphi7 -dCompiler6_Up -dPUREPASCAL nelle opzioni personalizzate
+ Progress: Trovati tutti i files delle unit
+sdasm.dpr(1,15) Note: Added MODE Delphi syntax modifier after unit name.
+ : 
+ : *** Conversione dei files delle unità che appartengono al progetto/pacchetto ***
+ : 
+ : *** Aggiusto unit usate e riparo i file dei form ***
+ : Conversione pronta.

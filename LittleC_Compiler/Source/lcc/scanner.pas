@@ -1,6 +1,11 @@
 //{$MODE DELPHI}
 {--------------------------------------------------------------}
 unit Scanner;
+
+{$IFDEF FPC}
+  {$MODE Delphi}
+{$ENDIF}
+
 {--------------------------------------------------------------}
 interface
 uses Input, Errors, Output, sysutils;
@@ -14,6 +19,7 @@ function IsMulop(c: char): boolean;
 procedure Match(x: char);
 function GetName: string;
 function GetNumber: string;
+function GetFloat: string;
 function ExtrCust(var word: string; c: char): string;
 function ExtrWord(var word: string): string;
 function ExtrList(var list: string): string;
@@ -26,6 +32,7 @@ var
         Level: integer;
         dummy: string;
         md: integer;
+        linecnt: integer;
 
 const
         SPACES = [' ', #9, #10, #11, #12, #13, #14];
@@ -36,6 +43,21 @@ const
         MODEFILE = 1;
         MODESTR = 2;
 
+        BO = #200;
+        BA = #201;
+        EQ = #202;
+        NE = #203;
+        GR = #204;
+        SM = #205;
+        GE = #206;
+        SE = #207;
+        PP = #210;
+        MM = #211;
+        SL = #212;
+        SR = #213;
+
+        REF = 1;
+        ADR = 2;
 
 {--------------------------------------------------------------}
 implementation
@@ -189,12 +211,12 @@ begin
                 else if (l = '"') then
                         l := ' ';
         end;
+        if c = chr(13) then inc ( linecnt );
 end;
 
 procedure GetToken(mode: integer; var s: string);
 var i: integer;
 //    l: char;
-
 begin
         Tok := '';
         l := ' ';
@@ -338,7 +360,7 @@ end;
 
 function IsAddop(c: char): boolean;
 begin
-	result := (c in ['+','-', '|', '~', '$', '§']);
+	result := (c in ['+','-','|','~',SL,SR]);
 end;
 
 
@@ -378,7 +400,7 @@ end;
 
 
 {--------------------------------------------------------------}
-{ Get a Number }
+{ Get an integer number }
 
 function GetNumber: string;
 var n: string;
@@ -391,6 +413,7 @@ begin
         isbin := false;
         ischr := false;
 
+        writeln (' DEBUG GetNumber Look, tok ' , Look, ' ', tok );
 	if not IsDigit(Look) and (Look <> '''') then
                 Expected('Integer');
 	while IsDigit(Look) or
@@ -407,6 +430,7 @@ begin
 		n := n + Look;
                 inc(p);
                 Rd(Look, tok); if not ischr then tok := trim(tok);
+                //writeln (' DEBUG GetNumber Look ' , Look );
 	end;
 {       if ishex then GetNumber := inttostr(converthex(n))
         else if isbin then GetNumber := inttostr(convertbin(n))
@@ -415,8 +439,49 @@ begin
         result := n;
 end;
 
+{--------------------------------------------------------------}
+{ Get a floating point number }
+
+function GetFloat: string;
+var f: string;
+    p: integer;
+    isbin, ishex, ischr: boolean;
+begin
+	f := '';
+        p := 0;
+        ishex := false;
+        isbin := false;
+        ischr := false;
+	if not IsDigit(Look) and (Look <> '''') then
+                Expected('Floating point (' + Look + ')');
+	while ( IsDigit(Look) or
+           // extract only the floating point number from the token
+           // needs review ... E.g.   aVar = 3.14 + bVar
+           // fails because token is '3.14+'
+           // workaround: use parenthesis  aVar = (3.14) + bVar
+                ( (p>1) and (upcase(Look)='E') ) or
+                ( (p>0) and (upcase(Look)='.') ) or
+                ( (p>1) and (upcase(Look)='+') ) or
+                ( (p>1) and (upcase(Look)='-') ) ) do
+        begin
+                f := f + Look;
+                inc(p);
+                Rd(Look, tok);
+                //writeln (' DEBUG GetFloat Look ' , Look );
+	end;
+        //writeln (' DEBUG GetFloat: ' , f );
+        try
+           DecimalSeparator:='.';
+           StrToFloat(f);
+           // if there is no error the result is a floating point
+           result := f;
+        except
+           Expected('Floating point <' + f + '>');
+        end;
+end;
 
 begin
         Level := 0;
+        linecnt := -1;
 end.
 

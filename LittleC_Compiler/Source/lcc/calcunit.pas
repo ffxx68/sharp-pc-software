@@ -1,13 +1,21 @@
 //{$MODE DELPHI}
 unit calcunit;
+
+{$IFDEF FPC}
+  {$MODE Delphi}
+{$ENDIF}
+
 // global
 
 //uses
 //  Classes;
-//TYPE  Real=Extended;
+//TYPE  Float=Extended;
 
 interface
-  procedure Evaluate(var Formula: String; wid: integer; var Value: integer;var ErrPosf: Integer);   { Posfition of error }
+
+  uses  math;
+
+  procedure Evaluate(var Formula: String; wid: integer; var Value: Float;var ErrPosf: Integer);   { Posfition of error }
   function converthex(s: string): integer;
 
 
@@ -46,9 +54,9 @@ implementation
   end;
 
 procedure Evaluate(var Formula: String;    { Fomula to evaluate}
-                   wid      : integer;      { Place for x in formula }
-                   var Value: integer;      { Result of formula }
-                   var ErrPosf: Integer);   { Posfition of error }
+                   wid      : integer;     { Place for x in formula }
+                   var Value: Float;        { Result of formula }
+                   var ErrPosf: Integer);  { Posfition of error }
 const
   HexNumbers: set of Char = ['0'..'9','A'..'F'];
   BinNumbers: set of Char = ['0','1'];
@@ -74,7 +82,7 @@ var
   end  { NextCh };
 
 
-  function Fakult(I: Integer): Real;  { Fakultaet }
+  function Fakult(I: Integer): Float;  { Fakultaet }
   var  dummy   : double;
   begin
     IF i=1 THEN BEGIN  result:=1;  Exit;  END;
@@ -98,23 +106,23 @@ var
 //    notbin := result;
   end;
 
-  function Expression: Real;
+  function Expression: Float;
   var
-    E: Real;
+    E: Float;
     Opr: Char;
 
-    function SimpleExpression: Real;
+    function SimpleExpression: Float;
     var
-      S: Real;
+      S: Float;
       Opr: Char;
 
-      function Term: Real;
+      function Term: Float;
       var
-        T: Real;
+        T: Float;
 
-        function SignedFactor: Real;
+        function SignedFactor: Float;
 
-          function Factor: Real;
+          function Factor: Float;
           type
             StandardFunction = (fabs,fsqrt,fsqr,fsin,fcos,
             farctan,fln,flog,fexp,ffact,fPi,fE,fnot,flb,fhb);
@@ -126,7 +134,7 @@ var
           var
             L:  Integer;       { intermidiate variables }
             hex,bin,Found:Boolean;
-            F: Real;
+            F: Float;
             Sf:StandardFunction;
             Start:Integer;
             s:string;
@@ -303,8 +311,7 @@ begin { procedure Evaluate }
   Formula:=Dummy;
   Posf:=0; NextCh;
   c := 0;
-  for i := 0 to wid-1 do c:=c or (1 shl i);
-  Value:=trunc(Expression) and c;
+  Value := Expression;
   if Ch=EofLine then ErrPosf:=0 else ErrPosf:=Posf;
 end { Evaluate };
 

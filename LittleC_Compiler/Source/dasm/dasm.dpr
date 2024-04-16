@@ -1,4 +1,9 @@
 program dasm;
+
+{$IFDEF FPC}
+  {$MODE Delphi}
+{$ENDIF}
+
 {$APPTYPE CONSOLE}
 {%File 'ModelSupport\default.txvpck'}
 uses sysutils;

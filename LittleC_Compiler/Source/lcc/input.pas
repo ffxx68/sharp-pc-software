@@ -1,6 +1,11 @@
 //{$MODE DELPHI}
 {--------------------------------------------------------------}
 unit Input;
+
+{$IFDEF FPC}
+  {$MODE Delphi}
+{$ENDIF}
+
 {--------------------------------------------------------------}
 interface
 var Look: char;              	{ Lookahead character }
