@@ -23,7 +23,7 @@ Machine code entry point at 0xE0E8 = 57576
 #define LCD_LEFT 0x3000
 #define LCD_RIGHT 0x306C
 
-byte regI at 0, regJ 1;
+byte regI at 0, regJ at 1;
 char regA at 2, regB at 3; 
 word regX at 4, regY at 6, addr at 8;
 
