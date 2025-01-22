@@ -413,8 +413,7 @@ begin
         isbin := false;
         ischr := false;
 
-        writeln (' DEBUG GetNumber Look, tok ' , Look, ' ', tok );
-	if not IsDigit(Look) and (Look <> '''') then
+        if not IsDigit(Look) and (Look <> '''') then
                 Expected('Integer');
 	while IsDigit(Look) or
                 ( (p=0) and (Look='''') ) or
@@ -430,7 +429,6 @@ begin
 		n := n + Look;
                 inc(p);
                 Rd(Look, tok); if not ischr then tok := trim(tok);
-                //writeln (' DEBUG GetNumber Look ' , Look );
 	end;
 {       if ishex then GetNumber := inttostr(converthex(n))
         else if isbin then GetNumber := inttostr(convertbin(n))
@@ -467,9 +465,7 @@ begin
                 f := f + Look;
                 inc(p);
                 Rd(Look, tok);
-                //writeln (' DEBUG GetFloat Look ' , Look );
 	end;
-        //writeln (' DEBUG GetFloat: ' , f );
         try
            DecimalSeparator:='.';
            StrToFloat(f);

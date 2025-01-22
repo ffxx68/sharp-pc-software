@@ -471,6 +471,7 @@ var i: integer;
 begin
         i := 1;
         lf := false;
+        //writeln ( ' DEBUG calcadr ', params  );
         while i <= length(params) do
         begin
                 if (params[i] = '0') and ((i < length(params)-2) and (upcase(params[i+1]) = 'X')) then
@@ -497,18 +498,22 @@ begin
                                 lf := true;
                         end else
                         begin
+
                                 s2 := inttostr(startadr + labpos[labp]);
                                 params := replace_text(params, s, s2);
-                                param1 := s;
+                                param1 := params;
                                 param2 := '';
                                 i := i - length(s) + length(s2);
                         end;
                 end;
                 inc(i);
         end;
+
+
         if lf then result := 0
         else if param2 = '' then result := mathparse(param1, 16)
         else result := mathparse(param1, 8) * 256 + mathparse(param2, 8);
+        //writeln ( ' DEBUG calcadr ', result );
 end;
 
 
@@ -1199,6 +1204,7 @@ begin
         writeln;
         writeln('Start address:'#9,startadr);
         writeln('End address:'#9,startadr+codpos-1);
+        writeln('(',codpos,' bytes)');
 
         if codpos = 0 then
         begin

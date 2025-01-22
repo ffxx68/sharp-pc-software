@@ -11,6 +11,9 @@ interface
 
 uses Output, SysUtils;
 
+
+function NewLabel: string;
+procedure PostLabel(L: string);
 procedure CompGreater;
 procedure CompSmaller;
 procedure CompSmOrEq;
@@ -45,6 +48,7 @@ type OpTypes = (byte, word, floatp);
 
 
 var
+  LCount: integer;
   libins: array [0..100] of boolean;
   libname: array [0..100] of string;
   libcnt: integer;
@@ -80,12 +84,31 @@ const   { Math }
   CPSE16 = 34;
   CPGE16 = 35;
 
-  tempFloat = 16; // using Xreg @ 0x10-0x17 as principal floating-point register
+  FloatXReg = 16; // FloatXreg @ 0x10-0x17; used as Primary floating-point store
+  FloatYReg = 24; // FloatYreg @ 0x18-0x1F
 
   {--------------------------------------------------------------}
 implementation
 
+{--------------------------------------------------------------}
+{ Generate a Unique Label }
 
+function NewLabel: string;
+var S: string;
+begin
+   Str(LCount, S);
+   result := 'LB' + S;
+   Inc(LCount);
+end;
+
+
+{--------------------------------------------------------------}
+{ Post a Label To Output }
+
+procedure PostLabel(L: string);
+begin
+   WritLn('  '+L+':');
+end;
 
 procedure load_x(s: string);
 begin
@@ -131,7 +154,6 @@ end;
 
 procedure varxram(Value, adr, size: integer; nm: string);
 begin
-  writeln ( ' DEBUG varxram ', nm );
   writln(#9'LIDP'#9 + IntToStr(adr) + #9'; Variable ' + nm + ' = ' + IntToStr(Value));
   if size = 1 then
   begin
@@ -178,7 +200,6 @@ var
   v, c: integer;
   s: string;
 begin
-  writeln ( ' DEBUG varxarr ', nm );
   if (size = 0) then exit;
 
   s := '';
@@ -287,7 +308,6 @@ var
   i: integer;
   s: string;
 begin
-  //writeln ( ' DEBUG varcode ', nm );
   if Value = -1 then Value := 0;
   addasm(nm + ':'#9'; Variable ' + nm + ' = ' + IntToStr(Value));
   if size = 1 then
@@ -344,7 +364,6 @@ begin
   for i := 1 to 7 do begin s := s + '0x'+IntToHex(ord(Value[i])) + ',';
   end;
   s := s + '0x'+IntToHex(ord(Value[8]));
-  //writeln ( '  DEBUG varfcode ', s );
 
   addasm(nm + ':'#9'; Floating-point  ' + nm ) ;
   s := #9'.DB'#9 + s;
@@ -367,7 +386,6 @@ begin
     for i := 1 to 7 do s := s + '0x'+IntToHex(ord(Value[j*8 + i])) + ',';
     s := s + '0x'+IntToHex(ord(Value[j*8 + 8]));
     s := #9'.DB'#9 + s + ' ; ' + IntToStr( j ) ;
-    //writeln ( ' DEBUG varfarr ', s );
     addasm(s);
   end;
   addasm('');
@@ -1009,16 +1027,16 @@ begin
   end;
 end;
 {--------------------------------------------------------------}
-
+// to review and verify !
 procedure PopFloat;
 var i: integer;
 begin
-    writln(#9'LP 0x1F ; Pop 8 bytes, to Yreg');
+    writln(#9'LP 0x1F ; Pop 8 bytes, to Yreg'); /// Why YReg ???
+    // Need to make a smarted ASM block! like Push
     for i := 0 to 7 do begin
-        writln(#9'POP');
-        Dec(pushcnt);
+        writln(#9'POP'); dec(pushcnt);
         writln(#9'EXAM');
-        writln(#9'DECP');
+        writln(#9'DECP');  // should we go up?
     end;
 end;
 
@@ -1026,11 +1044,11 @@ end;
 { Push Primary to Stack }
 
 procedure Push;
-var i: integer;
+var i: integer; lb: String;
 begin
   if optype = word then
   begin
-    writln(#9'PUSH'#9#9'; Push A then B');
+    writln(#9'PUSH ; word (A, then B)');
     Inc(pushcnt);
     writln(#9'EXAB');
     writln(#9'PUSH');
@@ -1038,17 +1056,27 @@ begin
   end
   else if optype = floatp then
   begin
-    writln(#9'LP 0x'+IntToHex(tempFloat,2)+' ; Push 8 bytes, from tempFloat');
+    writln(#9'LP 0x'+IntToHex(FloatXReg,2)+' ; float');
+    writln(#9'LIJ 0x07');
+    lb := NewLabel;
+    PostLabel(lb);
+    writln(#9'LDM');
+    writln(#9'PUSH');
+    writln(#9'INCP');
+    writln(#9'DECJ');
+    writln(#9'JRNZM '+ lb);
+    pushcnt := pushcnt + 8; // we just pushed a float var
+{
     for i := 0 to 7 do begin
       writln(#9'LDM');
-      writln(#9'PUSH');
-      Inc(pushcnt);
+      writln(#9'PUSH'); inc(pushcnt);
       writln(#9'INCP');
     end;
+}
   end
-  else
+  else  // byte or char
   begin
-    writln(#9'PUSH');
+    writln(#9'PUSH ; byte');
     Inc(pushcnt);
   end;
 end;
@@ -1070,8 +1098,7 @@ begin
     writln(#9'POP');
     Dec(pushcnt);
     writln(#9'EXAB');
-    writln(#9'POP');
-    Dec(pushcnt);
+    writln(#9'POP'); dec(pushcnt);
     //      writln( #9'EXAB');
     writln(#9'LP'#9'0');
     writln(#9'ADB'#9#9'; Addition');
@@ -1085,13 +1112,13 @@ begin
   begin
     writln(#9'; PopAdd float');
     PopFloat;
-    writln( #9'LP 0x10 ; tempFloat --> Xreg; (Q) -> (P), I+1 times' );
-    writln( #9'LIQ 0x'+IntToHex(tempFloat,2) );
+    writln( #9'LP 0x10 ; FloatXReg --> Xreg; (Q) -> (P), I+1 times' );
+    writln( #9'LIQ 0x'+IntToHex(FloatXReg,2) );
     writln( #9'LII 7'); // 8 bytes
     writln( #9'MVW');
     // Floating point addition
     writln( #9'CALL 0x10C2 ; Xreg + Yreg -> Xreg ( PC-1403 only? )');
-    writln( #9'LP 0x'+IntToHex(tempFloat,2)+' ; Xreg --> tempFloat; (Q) -> (P), I+1 times' );
+    writln( #9'LP 0x'+IntToHex(FloatXReg,2)+' ; Xreg --> FloatXReg; (Q) -> (P), I+1 times' );
     writln( #9'LIQ 0x10' );
     writln( #9'LII 7'); // 8 bytes
     writln( #9'MVW');
@@ -1134,13 +1161,13 @@ begin
   begin
     writln(#9'; PopSub float');
     PopFloat;
-    writln( #9'LP 0x10 ; tempFloat --> Xreg; (Q) -> (P), I+1 times' );
-    writln( #9'LIQ 0x'+IntToHex(tempFloat,2) );
+    writln( #9'LP 0x10 ; FloatXReg --> Xreg; (Q) -> (P), I+1 times' );
+    writln( #9'LIQ 0x'+IntToHex(FloatXReg,2) );
     writln( #9'LII 7'); // 8 bytes
     writln( #9'MVW');
     // Floating point subtraction
     writln( #9'CALL 0x10D8 ; Yreg - Xreg -> Xreg ( PC-1403 only? )');
-    writln( #9'LP 0x'+IntToHex(tempFloat,2)+' ; Xreg --> tempFloat; (Q) -> (P), I+1 times' );
+    writln( #9'LP 0x'+IntToHex(FloatXReg,2)+' ; Xreg --> FloatXReg; (Q) -> (P), I+1 times' );
     writln( #9'LIQ 0x10' );
     writln( #9'LII 7'); // 8 bytes
     writln( #9'MVW');
@@ -1181,13 +1208,13 @@ begin
   begin
     writln(#9'; PopMul float');
     PopFloat;
-    writln( #9'LP 0x10 ; tempFloat --> Xreg; (Q) -> (P), I+1 times' );
-    writln( #9'LIQ 0x'+IntToHex(tempFloat,2) );
+    writln( #9'LP 0x10 ; FloatXReg --> Xreg; (Q) -> (P), I+1 times' );
+    writln( #9'LIQ 0x'+IntToHex(FloatXReg,2) );
     writln( #9'LII 7'); // 8 bytes
     writln( #9'MVW');
     // Floating point multiplication
     writln( #9'CALL 0x10E1 ; Yreg * Xreg -> Xreg ( PC-1403 only? )');
-    writln( #9'LP 0x'+IntToHex(tempFloat,2)+' ; Xreg --> tempFloat; (Q) -> (P), I+1 times' );
+    writln( #9'LP 0x'+IntToHex(FloatXReg,2)+' ; Xreg --> FloatXReg; (Q) -> (P), I+1 times' );
     writln( #9'LIQ 0x10' );
     writln( #9'LII 7'); // 8 bytes
     writln( #9'MVW');
@@ -1224,13 +1251,13 @@ begin
   begin
     writln(#9'; PopDiv float');
     PopFloat;
-    writln( #9'LP 0x10 ; tempFloat --> Xreg; (Q) -> (P), I+1 times' );
-    writln( #9'LIQ 0x'+IntToHex(tempFloat,2) );
+    writln( #9'LP 0x10 ; FloatXReg --> Xreg; (Q) -> (P), I+1 times' );
+    writln( #9'LIQ 0x'+IntToHex(FloatXReg,2) );
     writln( #9'LII 7'); // 8 bytes
     writln( #9'MVW');
     // Floating point division
     writln( #9'CALL 0x10EA ; Yreg / Xreg -> Xreg ( PC-1403 only? )');
-    writln( #9'LP 0x'+IntToHex(tempFloat,2)+' ; Xreg --> tempFloat; (Q) -> (P), I+1 times' );
+    writln( #9'LP 0x'+IntToHex(FloatXReg,2)+' ; Xreg --> FloatXReg; (Q) -> (P), I+1 times' );
     writln( #9'LIQ 0x10' );
     writln( #9'LII 7'); // 8 bytes
     writln( #9'MVW');
