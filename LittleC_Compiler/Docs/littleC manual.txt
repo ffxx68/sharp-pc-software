@@ -1,5 +1,7 @@
 littleC Manual
 ~~~~~~~~~~~~~~
+by Simon Lehmayr
+
 
 
 Contents:
@@ -384,9 +386,11 @@ CPU memory:
 |95   |	Port C	     |	
 +-----+--------------+	
 
+
 Local variables and parameters:
 They will be pushed onto the stack, first the parameters and then the local variables.
 Then the function is called. You can even do recursive calls! (But a stack overflow will crash your little PC :-)
+Return value is passed on A (byte), or A:B (word).
 
 
 
@@ -402,5 +406,5 @@ And surely NO guarantee for always correctly working software, sorry :-)
 
 Contact:
 --------
-Visit my homepage "www.pocket.2xs.de" or mail me directly at "simpc@gmx.de"!
-
+Visit my homepage "https://www.simon-lehmayr.de"
+Original copy found at https://www.simon-lehmayr.de/e_software.htm ("little C cross-compiler (250kB)" zip file) 
