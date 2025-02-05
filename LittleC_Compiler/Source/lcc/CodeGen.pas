@@ -1032,7 +1032,7 @@ procedure PopFloat;
 var i: integer;
 begin
     writln(#9'LP 0x1F ; Pop 8 bytes, to Yreg'); /// Why YReg ???
-    // Need to make a smarted ASM block! like Push
+    // Need to make a smarter ASM block! like Push
     for i := 0 to 7 do begin
         writln(#9'POP'); dec(pushcnt);
         writln(#9'EXAM');
@@ -1057,15 +1057,14 @@ begin
   else if optype = floatp then
   begin
     writln(#9'LP 0x'+IntToHex(FloatXReg,2)+' ; float');
-    writln(#9'LIJ 0x07');
+    writln(#9'LIJ 0x08');
     lb := NewLabel;
     PostLabel(lb);
     writln(#9'LDM');
-    writln(#9'PUSH');
+    writln(#9'PUSH'); inc(pushcnt);
     writln(#9'INCP');
     writln(#9'DECJ');
     writln(#9'JRNZM '+ lb);
-    pushcnt := pushcnt + 8; // we just pushed a float var
 {
     for i := 0 to 7 do begin
       writln(#9'LDM');

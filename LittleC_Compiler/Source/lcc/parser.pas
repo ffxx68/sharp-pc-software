@@ -743,7 +743,7 @@ begin
                         writln(#9'EXAM');
                     end else
                     begin // Local char or byte
-                        writln(#9'EXAB'); // save A (value to store) to B
+                        writln(#9'EXAB'); // temp save A (value to store) to B
                         writln(#9'LDR');  // get stack ptr R to A
                         writln(#9'ADIA'#9+inttostr(adr+2+pushcnt)); // add relative address
                         writln(#9'STP'); // move result to P (absolute address)
@@ -774,11 +774,11 @@ begin
                         writln( #9'EXAM');
                     end else
                     begin // Local word
-                        //writln(#9'PUSH'); inc(pushcnt); // why save R?
-                        writln(#9'LDR');
+                        writln(#9'PUSH'); inc(pushcnt); // temp save A
+                        writln(#9'LDR');  // we overwrite A here !!!
                         writln(#9'ADIA'#9+inttostr(adr+2+pushcnt)); //adr + size + pushcnt
                         writln(#9'STP');
-                        //writln(#9'POP'); dec(pushcnt); // see above PUSH
+                        writln(#9'POP'); dec(pushcnt); // restore A
                         writln(#9'EXAM'#9'; LB - Store result in '+name);
                         writln(#9'EXAB');
                         writln(#9'DECP');
@@ -808,7 +808,7 @@ begin
                     begin
                         // a local variable is reverse-orderd in stack
                         writln('');
-                        writln(#9'; Move 8 bytes from primary float reg local var storage, reversed');
+                        writln(#9'; Store FloatXReg onto local-float variable, reversed');
                         // to:
                         writln(#9'LDR'); // R -> A
                         writln(#9'EXAB'); // save R in B first
@@ -818,7 +818,7 @@ begin
                         // from:
                         writln(#9'LIP 0x'+IntToHex(FloatXReg,2)+#9'; from: primary float reg addr' );
                         // loop 8 times
-                        writln(#9'LIJ 7');
+                        writln(#9'LIJ 8');
                         lb := NewLabel;
                         PostLabel(lb);
                         // move using LDM+PUSH
@@ -1039,16 +1039,16 @@ begin
                     writln( #9'LDD');
                 end;
                 if optype = floatp then
+                   // TO DO -casting ?
                    Error ( 'Unsupported load float to byte' );
-                   // TO DO - casting ?
                 if optype = word then
                    // cast byte to word
                    writln( #9'LIB'#9'0');
             end else if (typ='word') then
             begin
                 if optype = floatp then
-                   Error ( 'Unsupported load float to word' );
                    // TO DO - casting ?
+                   Error ( 'Unsupported load float to word' );
                 if not xr then
                 begin
                     if not loc then
@@ -1105,9 +1105,9 @@ begin
                     else begin
                         // a local variable is reverse-ordered on stack
                         writln(#9'');
-                        writln(#9'; Pop 8 bytes from local storage, to FloatXReg, reversed');
-                        writln(#9'LDR'); // R -> A
-                        writln(#9'EXAB'); // save R in B first
+                        writln(#9'; Load local-float var into FloatXReg, reversed');
+                        writln(#9'LDR');  // R -> A
+                        writln(#9'EXAB'); // save R in B, first
                         // from:
                         writln(#9'LDR'); // R -> A
                         writln(#9'ADIA'#9+inttostr(adr+pushcnt+2-7)+#9'; from: '+name+' offset');
@@ -1115,7 +1115,7 @@ begin
                         // to:
                         writln(#9'LIP 0x'+IntToHex(FloatXReg+7,2)+#9'; to: primary float reg end addr' );
                         // loop 8 times
-                        writln(#9'LIJ 7'#9'; move 8 bytes');
+                        writln(#9'LIJ 8'#9'; move 8 bytes');
                         lb := NewLabel;
                         PostLabel(lb);
                         // move using POP+EXAM
@@ -1964,7 +1964,7 @@ begin
                 else if proclist[currproc].returntype = 'float' then optype := floatp;
                 Expression;
         end;
-        writln( #9'RTN'#9#9'; Return');
+        writln( #9'RTN'#9#9'; end of ' + proclist[currproc].procname);
         writln('');
 end;
 {-------------------------------------------------------------}
@@ -2216,7 +2216,7 @@ begin
                 if proclist[procfound].loccnt > 0 then
                 begin
                     writln( ' ' );
-                    writln( #9'; reserving space on stack for local variables...');
+                    writln( #9'; reserving stack (R recalc)...');
                     aa := 0;
                     for c := 0 to proclist[procfound].loccnt - 1 do
                     begin
@@ -2249,11 +2249,11 @@ begin
                             end else
                                 error('Parameter error!'); }
                     end;
-                    // optimization
-                    if aa < 4 then
-                       for c := 0 to proclist[procfound].loccnt - 1 do
-                          Push
-                    else
+                     // allocating room on stack pointer... either via 'push', or R decrement
+                     if aa < 8 then
+                       for c := 0 to aa do
+                          begin writln( #9'PUSH'); inc(pushcnt); end
+                     else
                         begin
                           writln( #9'LP'#9'0');
                           writln( #9'EXAM');
@@ -2740,7 +2740,8 @@ begin
                         if pushcnt <> 0 then
                            writeln(proclist[i].procname+': Possible Stack corruption!');
                         removelocvars(proclist[i].procname);
-                        //writln( #9'RTN');
+                        if proclist[i].procname = 'main' then
+                           writln( #9'RTN'#9'; end of main');
                         writln('');
                    end else
                         writln('; Skipping procedure '+ proclist[i].procname +' (never used)');
