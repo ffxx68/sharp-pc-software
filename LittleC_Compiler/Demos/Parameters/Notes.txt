@@ -1,0 +1,496 @@
+
+From LCC Code...
+	
+StoreVariable : 
+
+    // Local char or byte : A --> (R + adr)
+	writln(#9'EXAB'); // save A (value to store) to B
+	writln(#9'LDR');  // get stack ptr R to A
+	writln(#9'ADIA'#9+inttostr(adr+2+pushcnt)); // add relative address
+	writln(#9'STP'); // move result to P (absolute address)
+	writln(#9'EXAB'); // restore A
+	writln(#9'EXAM'#9#9'; Store result in '+name); // A <-> (P)  
+	
+	// Local word : A,B --> (R + adr, R + adr - 1)
+	writln(#9'PUSH'); inc(pushcnt);
+	writln(#9'LDR');
+	writln(#9'ADIA'#9+inttostr(adr+1+pushcnt));
+	writln(#9'STP');
+	writln(#9'POP'); dec(pushcnt);
+	writln(#9'EXAM'#9'; LB - Store result in '+name);
+	writln(#9'EXAB');
+	writln(#9'DECP');
+	writln(#9'EXAM'#9'; HB'); 
+	
+LoadVariable : 
+ 
+    // Local char or byte : (R + adr) --> A
+	writln(#9'LDR');
+	writln(#9'ADIA'#9+inttostr(adr+2+pushcnt));
+	writln(#9'STP');
+	writln(#9'LDM'#9#9'; Load variable '+name);
+ 
+    // Local word : (R + adr, R + adr - 1) --> A,B
+	writln(#9'LDR');
+	writln(#9'ADIA'#9+inttostr(adr+1+pushcnt));
+	writln(#9'STP');
+	writln(#9'LDM'#9'; HB - Load variable '+name);
+	writln(#9'EXAB');
+	writln(#9'INCP');
+	writln(#9'LDM'#9'; LB');   
+	
+------------------------------
+Example procedure in C...
+
+byte testProc(byte pbT1, word pwT2) {
+
+	byte lbTest1;
+	word lwTest2;
+
+	lwTest2 = pwT2;
+	lbTest1 = pbT1;
+
+	return lbTest1;
+
+}
+  
+lcc-repadr results: these represents offsets with respect to the stack top
+	                            00 01 02 03 04 05 06 
+  DEBUG repadr lbTest1: 5    --|--|--|--|--|--|XX|--|--        
+  DEBUG repadr lwTest2: 4    --|--|--|--|XX|XX|--|--|--  
+  DEBUG repadr pbT1: 2       --|--|--|XX|--|--|--|--|-- 
+  DEBUG repadr pwT2: 1       --|XX|XX|--|--|--|--|--|-- 
+
+------------------------------
+RUNTIME example:
+
+  idx = testProc( 123, 5678 );
+  
+Translates to:
+  
+    ; Starting with R = 0x54
+	; Pushing parameters on stack, before calling testProc()
+	LIA	0x7B	        ; Load constant 123  
+	PUSH                ; A=123=0x7B -> (53) 
+	LIA	LB(5678)	    ; Load constant 0x2E
+	LIB	HB(5678)	    ; Load constant 0x16
+	PUSH		        ; Push A then B
+	EXAB                
+	PUSH                ; 16 -> (51), 0x2E -> (52)
+	; R = 51, now
+	CALL	testProc	; Call procedure
+    ; ...
+
+testProc:
+; R = 4F here; return address E05B : 5B -> (4F), E0 -> (50) 
+
+; Absolute addresses of local variables, now:
+
+;                                51 52 53 54 55 56   
+;  DEBUG repadr lbTest1: 5    --|--|--|--|--|--|XX|--        
+;  DEBUG repadr lwTest2: 4    --|--|--|--|XX|XX|--|--  
+;  DEBUG repadr pbT1: 2       --|--|--|XX|--|--|--|-- 
+;  DEBUG repadr pwT2: 1       --|XX|XX|--|--|--|--|-- 
+	
+	; 1) Load pwT2 to BA
+	LDR
+	ADIA	2           ; pwT2 adr = 1 : adr+1+pushcnt = 2
+	STP                 ; 0x51 -> P
+	LDM	                ; (0x51) = 16 -> A
+	EXAB                ; 16 -> B   (HB)
+	INCP
+	LDM	                ; (0x52) = 2E -> A (LB)  ;  BA = 0x162E : OK!
+	
+	; 2) Store BA to lwTest2
+	PUSH                ; A = 0x2E -> (0x4E) ; R = 4E; pushcnt = 1
+	LDR
+	ADIA	7           ; lwTest2 adr = 4 : adr+2+pushcnt = 7
+	STP                 ; 0x55 -> P 
+	POP                 ; R = 4F
+	EXAM	            ; 2E -> (55)  
+	EXAB
+	DECP                
+	EXAM	            ; 16 -> (54) ; OK!
+	
+	; 3) Load pbT1 to A
+	LDR                 ; R = 4F
+	ADIA	4           ; pbT1 adr = 2 : adr+2+pushcnt
+	STP                 ; P = 53 : OK!
+	LDM		            ; (53) = 7B -> A ; OK!
+	
+	; 4) Store A to lbTest1
+	EXAB                ; save A to B
+	LDR                 ; R = 4F
+	ADIA	7           ; lbTest1 adr = 5 : adr+2+pushcnt = 7
+	STP                 ; P = 56
+	EXAB                ; restore A from B
+	EXAM		        ; Store result in lbTest1
+	
+	; 5) procedure return value in A
+	LIA	0x37	        ; Load constant 0x37 = 55
+	RTN		            ; Return
+	
+-------------------------------------
+Example with Float :
+
+byte testProc(byte pbT1, word pwT2, float pfT3) {
+
+word lwTest2;
+float lfTest3;
+
+lwTest2 = pwT2;
+lfTest3 = pfT3;
+
+return pbT1;
+
+}
+
+main()
+{
+
+	a = testProc( 123, 5678, 3.2E+7 );
+}
+
+-------------------------------------
+LCC debug:
+                                  00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 
+  DEBUG repadr lwTest2: 20     --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|XX|XX|-- 
+  DEBUG repadr lfTest3: 18     --|--|--|--|--|--|--|--|--|--|--|--|XX|XX|XX|XX|XX|XX|XX|XX|--|--|--
+  DEBUG repadr pbT1: 10        --|--|--|--|--|--|--|--|--|--|--|XX|--|--|--|--|--|--|--|--|--|--|--
+  DEBUG repadr pwT2: 9         --|--|--|--|--|--|--|--|--|XX|XX|--|--|--|--|--|--|--|--|--|--|--|--
+  DEBUG repadr pfT3: 7         --|XX|XX|XX|XX|XX|XX|XX|XX|--|--|--|--|--|--|--|--|--|--|--|--|--|--
+  
+-------------------------------------
+RUNTIME
+
+main: 
+	; load and push params: byte pbT1, word pwT2
+	; ...
+	
+; R = 0x51
+	; load and push param: float pfT3
+	LIDP	0xE0B2       ; floating-point 3.2E+7 : 0x00,0x80,0x00,0x31,0x99,0x99,0x99,0x99
+	LP	0x10             ; temporary store point (tempFloat)
+	LII 07
+	MVWD                 ; (0xE0B2) -> (0x10) 8 bytes, ok!
+	LP 0x10              ; Push 8 bytes, from tempFloat
+	LDM
+	PUSH
+	INCP
+; . . . 
+	LDM
+	PUSH
+	INCP
+	
+; R = 0x49 ; pfT3 now is stored at 0x49 to 0x50, reverse-ordered!
+	CALL	testProc
+	; ...
+
+
+testProc:	; Procedure
+; R = 0x47 
+; (47,48) : return address
+
+;                                  49 4A 4B 4C 4D 4E 4F 50 51 52 53 54 55 56 57 58 59 5A 5B 5C 5D 
+;  DEBUG repadr lwTest2: 20     --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|XX|XX|-- 
+;  DEBUG repadr lfTest3: 18     --|--|--|--|--|--|--|--|--|--|--|--|XX|XX|XX|XX|XX|XX|XX|XX|--|--|--
+;  DEBUG repadr pbT1: 10        --|--|--|--|--|--|--|--|--|--|--|XX|--|--|--|--|--|--|--|--|--|--|--
+;  DEBUG repadr pwT2: 9         --|--|--|--|--|--|--|--|--|XX|XX|--|--|--|--|--|--|--|--|--|--|--|--
+;  DEBUG repadr pfT3: 7         --|XX|XX|XX|XX|XX|XX|XX|XX|--|--|--|--|--|--|--|--|--|--|--|--|--|--
+
+	;  lwTest2 = pwT2
+	;  ... seems ok (as seen on debugger)
+	
+	;  lfTest3 = pfT3
+; R = 0x47
+
+	; LOAD var
+	LDR
+	ADIA	9	 ; pfT3 offset + 2
+	STQ
+	LIP 0x10	 ; from temp float reg
+	LII 0
+	LIJ 7	     ; (Q) -> (tempFloat), 8 bytes, reversed
+ldFloatLoop:
+	MVW
+	LDQ          ; DEC Q doesn't exists, so need to do this ...
+	DECA         
+	DECA
+	STQ   
+	; ********************************************************************************
+	DECJ         ; Q is "unexpectedly" (to me) set to 0x01 (the reg J address)
+	             ; It's actually a documented CPU side-effect.
+	             ; DECx is also implemented in MAME with this sideeffect on Q
+				 ; see https://github.com/mamedev/mame/blob/master/src/devices/cpu/sc61860/scops.hxx#L212
+				 ; Need to fix code generation, to take this in consideration !!!ù
+				 ; See also : LoadVariable_FLOAT.txt
+	; ********************************************************************************
+	JRNZM ldFloatLoop
+
+	; STORE var
+	LDR
+	ADIA	18	; lfTest3 offset + size + 2
+	STP
+	LIQ 0x10	; from temp float reg
+	LII 0
+	LIJ 7	; (tempFloat) -> (P), 8 bytes, reversed
+stFloatLoop:
+	MVW
+	LDQ
+	DECA
+	DECA
+	STQ
+	DECJ
+	JRNZM stFloatLoop
+
+	LIDP	C_LB1 ; Load floating-point constant: 123
+	LP	0x10 ; temporary store point
+	LII 07
+	MVWD
+	RTN		; Return
+	
+; ******* DECJ is documented in MAME as having a sideeffect on Q
+------- 
+ 
+ 9/7
+ 
+Seems like after fixing code generation (see LoadVariable_FLOAT.txt), local variables store and load works as expected.
+Now, there's another issue...
+
+  return 123;
+
+here, 123 is treated as a floating-point (not sure why), but function expects to return a char type.
+This corrupts stack and crashes the program  !
+-------
+ 
+ 2/8
+ 
+FIXED - mistake in Return setting of "optype" in DoReturn... OK now.
+-------
+
+Still needing a review:
+
+1) in Parser.LoadVariable 
+
+  writln( #9'LIDP'#9+name+'+1'#9'; Load 16bit variable '+name); // FIXME - PASM doesn't parse "name+1"
+
+2) in Scanner.GetFloat
+
+Example: aVar = 3.14 + bVar
+this one fails because token is '3.14+'
+workaround: use parenthesis around constants aVar = (3.14) + bVar  
+-------
+ 
+ 28/8
+ 
+Maybe more important... seems to me procedure "repadr" still messes up with local variable addresses.
+
+How to fix this ???
+-------
+ 
+ 1/10
+ 
+Following code execution with the MAME debugger, I noticed that, it's not the local variable addresses that are wrong.
+
+Actually, at the time a procedure is called, parameter are PUSHED onto the stack, with the expression values just calculated,
+so that the corresponding area is actually allocated in it. Instead, local variables when declared are not pushed on stack
+and hence no room is allocated for local variables.
+
+The StoreVariable on a local-var assignment is then writing onto the stack over the procedure return address location!
+
+E.g. in the very simple code sample
+
+byte testProc(byte pbT1) {
+	byte lbTest4;
+	lbTest4 = 234;
+	return lbTest4;
+}
+main()
+{
+	a = testProc(123);
+}
+
+The call to testProc() translates to:
+
+MAIN:
+    ; main return address stored at (54,55), with R = 54 now
+	LIA	123	; Load constant 123
+	PUSH    ; R is 54 before the push; constant 123 is then placed at location 53 and R is 53 after PUSH
+	CALL	testProc ; --> see testProc ...
+	EXAB
+	LDR
+	ADIA	1
+	STR
+	EXAB
+	LP	8	; Store result in a
+	EXAM
+
+ EOP:	RTN
+
+
+testProc:	  ; R was set to 51 by the CALL, with (50,51) holding return address 
+	LIB	234	  ; Load constant 234 in B
+	LDR       ; R = 51 -> A
+	ADIA	3 ; A+3 = 54 -> A ; 3 is the calculated lbTest4 relative location in StoreVariable() = adr+2 where adr = 1
+	STP       ; 
+	EXAB
+	EXAM	  ; Store result in lbTest4 -> (54) !!! overlapping main() return address - see above
+
+	LDR
+	ADIA	3
+	STP
+	LDM		; Load variable lbTest4
+	RTN		; Return
+	
+As seen, lbTest4 is set to stay at location 3 (with respect to R) but there's no room for that, there!
+
+Basically, seems to me that local variables are NOT allocated in stack, while parameters are (implicitly) with a PUSH, 
+in compiler's ProcCall().
+-------
+ 
+ 2/10
+ 
+Found reason why... not the root cause though...
+
+In ProcCall(), there is indeed a Push for each local variable too (to allocate memory), but unfortunately
+when we reach that point, while parsing "a = testProc(123);" the number of local variables for "testProc" 
+is still set to 0, so no Push is made. Maybe testProc has not been parsed yet?
+-------
+
+ 5/10
+ 
+Another issue I noticed is that, if we declared a procedure string argument:
+
+ testProc ( String s ) { ... }
+ 
+when this gets called:
+
+ testProc ( "mystring" );
+ 
+it is not the pointer to the string, but the first character that is passed to the procedure.
+-------
+ 
+ 11/10
+ 
+Back to the original problem...
+
+Cause is that, while parsing code in the 'Block()' procedure, it reaches "ProcCall" of a given function, 
+BEFORE the Block() is executed for that function. Better explained with the simple example:
+
+byte testProc(byte pbT1) {
+	byte lbTest4;
+	lbTest4 = 234;
+	return lbTest4;
+}
+main()
+{
+	a = testProc(123);
+}
+
+In the compiler, when the 'main' block is parsed, when this assignment is reached:
+
+   a = testProc(123);
+   
+it executes the ProcCall code generation. But, at this time, the 'testProc' block isn't parsed yet, 
+hence the count of testProc local variables (lbTest4, lbTest4 -> 2) is still 0.
+
+This happens during SecondScan. I wonder if FirstPass should parse also blocks (which it doesn't)...
+
+Hard to fix... 
+--------
+
+ 20/1/2025
+ 
+Fixed by changing the order procedures are processed in SecondScan.
+This fix at least doesn't corrupt the stack, as return addresses from procedures are correctly kept.
+
+--------
+
+Nonetheless, pointers to parameters, whithin functions, are not correctly calculated ... 
+
+Say, in the example below:
+
+//                 10         8           7            
+byte testProc(word pwT2, byte pbT1, float pfT3) {
+	byte lbTest4;  // 21
+	word lwTest2;  // 20
+	float lfTest3; // 18
+	
+	return pbT1 ;
+}
+
+main()
+{
+	byte lbTest5; // ??? not found !!!
+	
+	a = testProc( 5678, 123, 1.2345678912E+15 );
+}
+
+I reported the values calculated by 'repadr' and set into 
+
+  varlist[...].address; 
+  
+which should give the dispacement with respect to stack top of each local variable or parameter.
+I'm afraid 'repadr' is not doing the correct job...
+
+In 'ProcCall' the sequence is this:
+
+- pushing parameters (left to right)
+- pushing local variables (first to last)
+- calling procedure (pushing return address)
+
+where each push is a stack ptr decrement, by proper size (byte = 1, word = 2, float = 8, address = 2).
+
+Offsets are used like below, to load a variable value:
+
+    LDR     ; here R is the value AFTER the call, hence including the 2 bytes from address return location
+	ADIA < offset >
+	STP
+	LDM		; Load variable (from memory, to register)...
+
+From the example above, when testProc has been called already (from debug), the status is:
+
+R = 3D
+  return (word):        (3D, 3E) offset (dec) = 0
+  (locals)
+  lfTest3 (float):      (3F,46)                 2   9 
+  lwTest2 (word):       (47,41)                 10  1 
+  lbTest4 (byte) :      (42)                    12    
+  (params)
+  pfT3 (float):         (4A-51)                 13
+  pbT1 (byte):          (52)                    0
+  pwT2 (word):          (53,54)                 21
+
+When 'repadr' is reached by the compiler, VarList[] contains the 'testProc' variables in such order:
+
+ 1:  pwT2
+ 2:  pbT1
+ 3:  pfT3
+ 4:  lbTest4
+ 5:  lwTest2 
+ 6:  lfTest3
+ 
+which isn't correct... I think.
+ 
+--------
+
+ 22/1
+ 
+Also had a chat with Simon (author), about this, a while ago. He said it's possibily a bug.
+Tried a fix, moving offset calculation of locals before parameters, in repadr.
+Now, to be tested...
+
+--------
+
+ 5/2
+ 
+Test (debug): after local var and param allocation and CALL to testProc
+this is the stack memory content:
+
+ 49-50 : pfT3
+ 51    : pbT1
+ 52-53 : pwT2
+ 
+ 54-
+ 
+ 
