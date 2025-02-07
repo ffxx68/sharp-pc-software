@@ -1,5 +1,5 @@
 #org 0xE030
-
+byte *pb;
 /*
 Reserving 2 K on top of BASIC program memory:
 
@@ -25,12 +25,13 @@ Machine code entry point at 0xE0E8 = 57576
 
 byte regI at 0, regJ at 1;
 char regA at 2, regB at 3; 
-word regX at 4, regY at 6, addr at 8;
+word regX at 4, regY at 6;
 
-char xram mystring[7] = "FFXX68";
+char xram mystring[13] = "Hello World!";
 
 char readbyte(word adr)
 {
+	// overwriting X!
 	regX = adr;
 #asm
 	DX
@@ -40,43 +41,37 @@ char readbyte(word adr)
 
 writebyte(word adr2, char byt)
 {
+	// overwriting Y!
 	regY = adr2;
 	regA = byt;
 #asm
 	DY
 	IYS
 #endasm
-}
-
-delay05() {
-#asm
-DELAY05_LOOP: 
-	TEST  0x01          ; Test .5 s timer
-	JRZM  DELAY05_LOOP
-#endasm
+  return;
 }
  
-// using display routine from ROM
-puts(word str) {
-	
-	addr = str;
-	
-	// how to get string addresses dinamically?
-	// hardcoded name 'mystring', for now ...
+// using display routines from ROM (PC-1403)
+puts(word  stradr) {
+ 
+	// overwriting X!
+	regX = stradr;
+
 #asm
+		; just like a C strncpy(X, P, 24)
+		
 		; fill destination with 24 blanks, beforehand
 		LII   0x16
 		LP	  0x10   ; destination start (internal ram)
 		LIA	  0x20   ; blank
 		FILM
 		
-		; just like a C strncpy()
-		LP	4			;  XL
-		LIA	LB(mystring) 
-		EXAM
-		LP	5			;  XH
-		LIA	HB(mystring)
-		EXAM
+;		LP	4			;  XL
+;		LIA	LB(mystring) 
+;		EXAM
+;		LP	5			;  XH
+;		LIA	HB(mystring)
+;		EXAM
 		DX
 		LII  0x16      ; max size (23 chars, terminator excluded)
 		LP	 0x10      ; destination
@@ -90,10 +85,10 @@ PUTS_LOOP1:
 		JRNZM   PUTS_LOOP1 ; until max size
 
 PUTS_LB1:
-		LIA		0x0D     ; always terminate with newline
+		LIA		0x0D	; always terminate with newline char
 		DECP
 		EXAM
-		LIJ 1 ; needed
+		LIJ 1			; needed
 		
 		; change memory bank to External ROM
 		LIDP 0x3C00	; Read current bank#
@@ -109,13 +104,26 @@ PUTS_LB1:
 		LIDP 0x3C00	; bankswitch
 		STD			; and write it
 #endasm
+
+  return;
+  
 }
 
 char getchar () {
 #asm	
-    CALL  0x1494        ; Syscall: wait for a keystroke
+    CALL  0x1494        ; Syscall: wait for a keystroke (PC-1403)
 #endasm
 	return readbyte(0xFF5E); // get the key-code value stored in memory
+}
+
+/*
+
+delay05() {
+#asm
+DELAY05_LOOP: 
+	TEST  0x01          ; Test .5 s timer // THIS IS NOT EMULATED ON MAME!!!
+	JRZM  DELAY05_LOOP
+#endasm
 }
 
 flashlcd(byte num){
@@ -131,14 +139,12 @@ flashlcd(byte num){
 		delay05();
 	}
 }
+*/
 
 main()
 {
-	//flashlcd(5);
-	//regB=getchar();
-	
-	puts(mystring);
+
+	puts(&mystring);
 	regB=getchar();
-	
-	//flashlcd(5);
+
 }

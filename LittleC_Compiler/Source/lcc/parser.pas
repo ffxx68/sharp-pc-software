@@ -1172,7 +1172,7 @@ begin
                         writln( #9'POP'); dec(pushcnt);
                         writln( #9'LIB'#9'0');
                         writln( #9'ADB');
-                        writln( #9'IXL');
+                        writln( #9'IXL'); // X -> DP; DP+1 -> DP, X; (DP) -> A
                 end;
             end else if (typ='float') then
             begin
@@ -2384,8 +2384,8 @@ procedure Block;
 var Name, name2: string;
 begin
     repeat
+
         getToken(MODESTR, dummy);
-        tok := trim(tok);
         // The following doesn't allow var names starting with a type name
         // e.g. 'byteX' is confused with 'byte' !
         // Try using GetName(), or ExtrWord() instead?
@@ -2503,85 +2503,100 @@ begin
         GetToken(MODEFILE, dummy);
         while tok <> '' do
         begin
-            // the following limits procedure and variable names
-            // NOT to start with a type name, like e.g. 'byte byteX;'
-                Name := copy(tok,1,5); //ExtrWord(Tok);
-                if  (Level = 0)  and
-                         ( (trim(Name) = 'byte')
-                       or  (trim(Name) = 'char')
-                       or  (trim(Name) = 'word')
-                       or  (trim(Name) = 'float') )
-                then
-                begin
-                        delete(tok,1,Length(trim(Name))); tok:=trim(tok);
-                        Tok := Name + ' ' + Tok;
-                        vardecl;
-                end
-                else if copy(tok,1,5) = '#org ' then //(Name = '#org') then
-                        begin ExtrWord(Tok); org := trim(Tok); end
-                else if copy(tok,1,4) = '#pc ' then //(Name = '#pc') then
-                        begin ExtrWord(Tok); pc := trim(Tok); end
-                else if copy(tok,1,7) = '#nosave' then
-                        nosave := true
-                else if pos('(', tok) > 0 then
-                begin
-                        name2 := ExtrWord(Tok);
-                        isword := false;
-                        hasret := false;
-                        if name2 = 'float' then
-                        begin
-                                Error ( 'Float return value unsupported (yet)' );
-                                rettyp := name2;
-                                optype := floatp;
-                                Name := ExtrWord(Tok);
-                                hasret := true;
-                        end else
-                        if name2 = 'word' then
-                        begin
-                                rettyp := name2;
-                                isword := true;
-                                optype := word;
-                                Name := ExtrWord(Tok);
-                                hasret := true;
-                        end else
-                        if (name2 = 'char') or (name2 = 'byte') then
-                        begin
-                                rettyp := name2;
-                                optype := byte;
-                                Name := ExtrWord(Tok);
-                                hasret := true;
-                        end else
-                                Name := name2;
-                        tok := trim(tok); delete(tok, 1, 1); tok := trim(tok);
-                        i := 0;
+
+            // Variable or precedure declarations
+            if (Level = 0) then
+            begin
+              // NOTE - the following logic limits procedure and variable names
+              // NOT to start with a type name, like e.g. 'byte byteX;'
+              Name := copy(tok,1,4);
+              //Name := ExtrWord(Tok);  // doesn't wikr!
+              if  (Level = 0)  and
+                       ( (trim(Name) = 'byte')
+                     or  (trim(Name) = 'char')
+                     or  (trim(Name) = 'word')
+                     )
+              then
+              begin
+                      delete(tok,1,Length(trim(Name))); tok:=trim(tok);
+                      Tok := Name + ' ' + Tok;
+                      vardecl;
+              end;
+              Name := copy(tok,1,5);
+              if ( (trim(Name) = 'float') )
+              then
+              begin
+                      delete(tok,1,Length(trim(Name))); tok:=trim(tok);
+                      Tok := Name + ' ' + Tok;
+                      vardecl;
+              end;
+            end;
+
+            if copy(tok,1,5) = '#org ' then //(Name = '#org') then
+                    begin ExtrWord(Tok); org := trim(Tok); end
+            else if copy(tok,1,4) = '#pc ' then //(Name = '#pc') then
+                    begin ExtrWord(Tok); pc := trim(Tok); end
+            else if copy(tok,1,7) = '#nosave' then
+                    nosave := true
+            else if pos('(', tok) > 0 then
+            begin
+                    name2 := ExtrWord(Tok);
+                    isword := false;
+                    hasret := false;
+                    if name2 = 'float' then
+                    begin
+                            Error ( 'Float return value unsupported (yet)' );
+                            rettyp := name2;
+                            optype := floatp;
+                            Name := ExtrWord(Tok);
+                            hasret := true;
+                    end else
+                    if name2 = 'word' then
+                    begin
+                            rettyp := name2;
+                            isword := true;
+                            optype := word;
+                            Name := ExtrWord(Tok);
+                            hasret := true;
+                    end else
+                    if (name2 = 'char') or (name2 = 'byte') then
+                    begin
+                            rettyp := name2;
+                            optype := byte;
+                            Name := ExtrWord(Tok);
+                            hasret := true;
+                    end else
+                            Name := name2;
+                    tok := trim(tok); delete(tok, 1, 1); tok := trim(tok);
+                    i := 0;
 //                        p := 0;
-                        temp := '';
-                        if copy(tok, 1, 1) <> ')' then
+                    temp := '';
+                    if copy(tok, 1, 1) <> ')' then
+                    begin
+                        delete(tok, length(tok), 1);
+                        temp := tok;
+                        s := tok + ',';
+                        currproc := proccount;
+                        while s <> '' do
                         begin
-                            delete(tok, length(tok), 1);
-                            temp := tok;
-                            s := tok + ',';
-                            currproc := proccount;
-                            while s <> '' do
-                            begin
-                                    tok := ExtrList(s);
-                                    //proclist[proccount].partyp[i] := copy(tok, 1, 4);
-                                    proclist[proccount].partyp[i] := trim(copy(tok, 1, 5));
-                                    procd := true;
-                                    proclist[proccount].parname[i] := vardecl;
-                                    procd := false;
-                                    inc(i);
-                            end;
+                                tok := ExtrList(s);
+                                //proclist[proccount].partyp[i] := copy(tok, 1, 4);
+                                proclist[proccount].partyp[i] := trim(copy(tok, 1, 5));
+                                procd := true;
+                                proclist[proccount].parname[i] := vardecl;
+                                procd := false;
+                                inc(i);
                         end;
-                        t := '';
-                        repeat
-                                Rd(Look, dummy);
-                                t := t + Look;
-                        until Level = 0;
-                        delete(t, length(t), 1);
-                        AddProc(Name, trim(t), temp, i, hasret, isword, rettyp);
-                end;
-	        GetToken(MODEFILE, dummy);
+                    end;
+                    t := '';
+                    repeat
+                            Rd(Look, dummy);
+                            t := t + Look;
+                    until Level = 0;
+                    delete(t, length(t), 1);
+                    AddProc(Name, trim(t), temp, i, hasret, isword, rettyp);
+            end;
+	    GetToken(MODEFILE, dummy);
         end;
 
         printvarlist;
