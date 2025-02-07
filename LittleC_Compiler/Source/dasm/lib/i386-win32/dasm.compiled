@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CONFIG>
-  <Compiler Value="C:\Users\f.fumi\lazarus\fpc\3.2.2\bin\x86_64-win64\fpc.exe" Date="1469148810"/>
-  <Params Value=" -Twin32 -Pi386 -MDelphi -Scghi -Ci -O1 -g -gl -WG -l -vewnhibq -FiC:\Users\f.fumi\Documents\Delphi7\Source\dasm\lib\i386-win32 -FuC:\Users\f.fumi\lazarus\lcl\units\i386-win32\win32 -FuC:\Users\f.fumi\lazarus\lcl\units\i386-win32 -FuC:\Users\f.fumi\lazarus\components\freetype\lib\i386-win32 -FuC:\Users\f.fumi\lazarus\components\lazutils\lib\i386-win32 -FuC:\Users\f.fumi\lazarus\packager\units\i386-win32 -FuC:\Users\f.fumi\Documents\Delphi7\Source\dasm\ -FEC:\Users\f.fumi\Documents\Delphi7\Source\dasm\lib\i386-win32\ -oC:\Users\f.fumi\Documents\Delphi7\Source\dasm\lib\i386-win32\dasm.exe -dLCL -dLCLwin32 -dBorland -dVer150 -dDelphi7 -dCompiler6_Up -dPUREPASCAL dasm.dpr"/>
-</CONFIG>
