@@ -19,7 +19,7 @@
 120 LET r = 0
 130 GOSUB 200
 131 FOR r=1 to VL-1
-132 LET mt(r) = (69*mt(r-1)) AND 127)
+132 LET mt(r) = ((69*mt(r-1)) AND 127)
 133 NEXT R
 135 FOR s = 1 TO VL-1
 140 PRINT "Random number: "; mt(s)
