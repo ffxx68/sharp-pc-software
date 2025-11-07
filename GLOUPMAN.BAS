@@ -27,7 +27,8 @@
 50260 read L2:rem NUMBER OF STARS
 50270 H=4,P=8,TI=0
 50280 wait 0:print "     READY":call &4B8
-50290 poke 32964,18*5:poke 33105,LA-int (LA/256)*256,int (LA/256):call 33107:call &4B8
+50290 poke 32964,18*5:poke 33105,LA-int (LA/256)*256,int (LA/256)
+50295 call 33107:call &4B8
 50300 for I=0 to 200:next I:poke 33448,1,168,10
 50310 for I=0 to 4:call 33452:for J=0 to 30:next J:next I:gosub 50330
 50320 goto 50410
@@ -72,9 +73,12 @@
 50710 print "   *** GAME OVER ***":goto 50000
 50720 print "SCORE: ";SC;" LIFES: ";V
 50730 V=V-1,H=4,P=8:for I=1 to 7:F(I)=0:next I:goto 50280
-50740 data 218,208,105,419,140,313,170,262,105,419,140,313,170,524,198,220,96,444
-50750 data 132,332,160,278,96,444,132,332,160,556,218,208,105,419,140,313,170,262
-50760 data 105,419,140,313,170,655,160,139,140,313,150,148,140,157,125,351,132,166
+50740 data 218,208,105,419,140,313,170,262,105
+50745 data 419,140,313,170,524,198,220,96,444
+50750 data 132,332,160,278,96,444,132,332,160,556
+50755 data 218,208,105,419,140,313,170,262
+50760 data 105,419,140,313,170,655,160,139,140,313
+50765 data 150,148,140,157,125,351,132,166
 50770 data 125,176,109,395,118,187,109,198,105,419
 50780 data 1,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,1
 50790 data 2,2,2,1,1,2,2,2,2,2,2,2,1,1,2,2,2
@@ -110,13 +114,16 @@
 51090 data "000040",105,540,"1C3E3E3E1C"
 51100 rem INTRO
 51110 print "        GLOUPMAN":for I=0 to 5
-51120 poke 32964,I*5:poke 33105,AA-int (AA/256)*256,int (AA/256):call 33107
-51130 poke 32964,(I+18)*5:poke 33105,BA-int (BA/256)*256,int (BA/256):call 33107
+51120 poke 32964,I*5:poke 33105,AA-int (AA/256)*256,int (AA/256)
+51125 call 33107
+51130 poke 32964,(I+18)*5:poke 33105,BA-int (BA/256)*256,int (BA/256)
+51135 call 33107
 51140 next I:poke 33450,10:restore 50740:call &4B8
 51150 for I=1 to 32:read A,B:A=int (A*4.437138-19.81)
 51160 poke 33448,int A-256*int (A/256),(A/256):call 33452:next I
 51170 return 
-51180 restore 50740:A$="1C2222221C",B$="001C1C1C00":wait 0:J=0:for I=30 to 0 step -2
+51180 restore 50740:A$="1C2222221C",B$="001C1C1C00":wait 0:J=0
+51185 for I=30 to 0 step -2
 51190 poke 33448,int I-256*int (I/256),(I/256),10:call 33452:next I
 51200 I=int (K/(20-TI*0.04)),SC=SC+I*(I>0):SC=SC+I:K=0:TI=0
 51210 wait 150:print "SCORE: ";SC:B1$(0)="7E3B7F3B7E":wait 0:print ""
@@ -127,7 +134,8 @@
 51260 A=BA:gosub 51610:call &4B8:next I
 51270 beep 1:print " "
 51280 V=V+1:print "LIFES: ";SC
-51290 T=T+1,S$=chr$ (T+asc "1"):print "Creating Laby ";S$;" (50s)...":call &4B8
+51290 T=T+1,S$=chr$ (T+asc "1"):print "Creating Laby ";S$;" (50s)..."
+51295 call &4B8
 51300 for I=0 to 7:F(I)=0:next I:goto 50170
 51310 rem Explanations
 51320 wait 0:A=AA:print "You are:  . Eat the ";chr$ 34;"*";chr$ 34
@@ -146,20 +154,24 @@
 51450 A1$(0)="227F7F7F0E087F7B187B7F083E63636322"
 51460 C=15:gosub 51610:gosub 51630:wait 0:print "Current row in laby:"
 51470 A1$(0)="0808081408":C=21:gosub 51610:W=100:gosub 51630
-51480 print "And the detail of the":print "row where you are in the":print "laby."
+51480 print "And the detail of the":print "row where you are in the"
+51485 print "laby."
 51490 wait 0:print "There is 1   per row..."
 51500 A1$(0)="7E3B7F3B7E":C=11:gosub 51610:gosub 51630
 51510 print "and it goes through":print "walls!":print "Movement with keys:"
-51520 wait 0:print "  (I)              (P)":A1$(0)="14363E3E1C":C=0:gosub 51610
+51520 wait 0:print "  (I)              (P)":A1$(0)="14363E3E1C":C=0
+51525 gosub 51610
 51530 A1$(0)="1C3E3E3614":C=23:gosub 51610:W=150:gosub 51630
-51540 wait 0:print "  (Q)              (Z)":A1$(0)="1C3E383E1C":C=0:gosub 51610
+51540 wait 0:print "  (Q)              (Z)":A1$(0)="1C3E383E1C":C=0
+51545 gosub 51610
 51550 A1$(0)="1C3E0E3E1C":C=23:gosub 51610:gosub 51630
 51560 wait 100:print "Note: 2 tunnels in"
 51570 print "Laby #1, only 1 in":print "Laby #2, NONE in L#3,"
 51580 print "and 2 in L#4. 1 extra":print "life per level..."
 51590 print "      GOOD LUCK !":return 
 51600 rem GPRINT,A=ADR,C=CURSOR
-51610 poke 32964,5*C:poke 33105,A-int (A/256)*256,int (A/256):call 33107:return 
+51610 poke 32964,5*C:poke 33105,A-int (A/256)*256,int (A/256)
+51615 call 33107:return 
 51620 rem WAIT,T=TIME
 51630 wait W:for I=20 to W:call &4B8:next I:return 
 51640 rem ERASE STAR

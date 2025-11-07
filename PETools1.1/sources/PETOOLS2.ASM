@@ -383,14 +383,14 @@ JR98E:	PUSH			; Save A (= ascii code)
 	EXAM
 	
 	RA			; (00 B) -> BA = Table offset 
-	EXAB
+	EXAB        ; A <-> B
 
-	SBB			; 16 bit sub
+	SBB			; 16 bit subtr: (Y) - (BA) -> (Y)
 	DECP
 
 	POP			; (00 ascii) -> BA			
 	
-	ADB			; 16 bit add five times
+	ADB			; 16 bit add five times  (Y) + (BA) -> (Y)
 	DECP
 	ADB
 	DECP

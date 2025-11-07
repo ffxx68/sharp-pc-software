@@ -213,7 +213,39 @@ CALL 33709
 KEYCODE
 Call address: CALL 33840
 
-Reads the key code off the whole keyboard (except the BRK key) like the system calls CALLl &1494 and CALL &14BF. The difference is, that the control is returned to the calling program, if there is no key pressed. PEEK 65374 returns the key code or &FF, if no key was pressed. The keys are assigned to the following key codes:
+Reads the key code off the whole keyboard (except the BRK key) like the system calls CALL &1494 and CALL &14BF. The difference is, that the control is returned to the calling program, if there is no key pressed. PEEK 65374 returns the key code or &FF, if no key was pressed. 
+
+The keys are assigned to the following key codes:
+
+
+       SHARP  POCKET COMPUTER PC-1403H  32KB                 +---+ +---+ +---+ +---+ +---+ +---+ 
+                                                             |hyp| |sin| |cos| |tan| |FSE| |CCE| 
+  on                                                         +---+ +---+ +---+ +---+ +---+ +---+ 
+ +-+ +----------------------------------------------------+    67    66    65    64    4     6   
+ ¦ ¦ ¦                                    DEG             |  +---+ +---+ +---+ +---+ +---+ +---+ 
+ +-+ ¦ >                                                  |  |HEX| |DEG| | ln| |log| |1/x| | ^ | 
+ off ¦      _                                             |  +---+ +---+ +---+ +---+ +---+ +---+ 
+     +----------------------------------------------------+    75    74    73    72    11    5   
+       CAL RUN PRO                                           +---+ +---+ +---+ +---+ +---+ +---+ 
+                                                             |EXP| |y^x| | v~| |x^2| | ( | | ) | 
+                                                             +---+ +---+ +---+ +---+ +---+ +---+ 
+                                                               83    82    81    80    17    12  
+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+  +---+  +---+  +---+  +---+  +---+  
+ |CAL| |BAS| |BRK| |DEF| | v | | ^ | | < | | > | |SML| |SHI|  | 7 |  | 8 |  | 9 |  | / |  |X>M|  
+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+  +---+  +---+  +---+  +---+  +---+  
+   25    22    -     37    3     10    16    21    36    38     35     34     33     32     31   
+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+  +---+  +---+  +---+  +---+  +---+  
+ | Q | | W | | E | | R | | T | | Y | | U | | I | | O | | P |  | 4 |  | 5 |  | 6 |  | * |  | RM|  
+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+  +---+  +---+  +---+  +---+  +---+  
+   46    54    62    70    78     2     9    15    20    24     43     42     41     40     39   
+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+  +---+  +---+  +---+  +---+  +---+  
+ | A | | S | | D | | F | | G | | H | | J | | K | | L | | , |  | 1 |  | 2 |  | 3 |  | - |  | M+|  
+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+  +---+  +---+  +---+  +---+  +---+  
+   45    53    61    69    77     1     8    14    19    23     51     50     49     48     47   
+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---------+  +---+  +---+  +---+  +---+  +---+  
+ | Z | | X | | C | | V | | B | | N | | M | |SPC| |  ENTER  |  | 0 |  |+/-|  | . |  | + |  | = |  
+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---+ +---------+  +---+  +---+  +---+  +---+  +---+  
+   44    52    60    68    76     0     7    13       18        59     58     57     56     55   
 
 SAVAIL
 Call address: PEEK &84CF

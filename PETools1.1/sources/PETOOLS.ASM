@@ -179,7 +179,7 @@ L1E:    LOOP L1S		; "NEXT Stack1"
 
 DISPAD: LIB  $10
 DISPAC:	LP   REG_B		; Copy B to A
-	LDM
+		LDM
         CPIA 60			; Char 1-12 ?
 JR10S:	JRCP JR10E		; Jump to positive offset calculation
 
@@ -211,7 +211,7 @@ JR17S:  JRP  C11		; Jump over positive offset calculation
 
 JR10E:  CPIA 45			; If not char 10-12, jump ahead
 JR18S:	JRCP JR18E
-        LP   REG_B              ; LSB is REG_B - $0F
+        LP   REG_B      ; LSB is REG_B - $0F
         SBIM $0F              
 JR19S:  JRP  C11		; "break"
 JR18E:	CPIA 30			; If not char 7-9, jump ahead
@@ -331,7 +331,7 @@ JR31S:	JRNZM JR30E		; No: continue search
 
 GPRINT: LIA  $00
 GPRINC:	LP   REG_M		; Copy A to M
-	EXAM
+	EXAM             ; A<->(P)
 	LIDP GCURS		; Target adress
 	LDD
 	EXAB			; Cursor position now in B
