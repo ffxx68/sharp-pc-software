@@ -1,44 +1,43 @@
-ALMANAC.BAS - Descrizione
-========================
+ALMANAC.BAS - Description
+=========================
 
-Scopo:
+Purpose:
+--------
+This BASIC program for SHARP PC calculates the GHA (Greenwich Hour Angle) and the declination of the Sun for a specified date and time, useful for astronomical navigation.
+
+How it works:
+-------------
+1. The user enters year (1980-2099), month, day, hour, and minutes (UT).
+2. The program computes the Julian Day (JD) and the fraction of a century (T) since January 1, 2000.
+3. It calculates the mean positions of the Sun (longitude, mean anomaly, etc.) and the corrections for the equation of the center.
+4. The apparent longitude of the Sun, the obliquity of the ecliptic, and the equatorial position (right ascension and declination) are determined.
+5. The program computes the Greenwich Mean Sidereal Time (GMST) and then the GHA of the Sun.
+6. It prints the date, UT time, the Sun's GHA (in degrees, minutes, seconds), and declination (N/S, degrees, minutes, seconds).
+7. The user can repeat the calculation for other data.
+
+Main variables:
+---------------
+- Y, M, D: year, month, day
+- H, N: hour and minutes UT
+- JD: Julian Day
+- T: Julian century since 2000
+- L0: mean longitude of the Sun
+- MA: mean anomaly of the Sun
+- C: equation of the center
+- TL: true longitude of the Sun
+- OM: longitude of the ascending node
+- LA: apparent longitude of the Sun
+- EP: obliquity of the ecliptic
+- RA: right ascension of the Sun
+- GM: Greenwich Mean Sidereal Time
+- GH: GHA of the Sun
+- DEC: declination of the Sun
+
+Typical use:
+------------
+The program is intended for navigators, amateur astronomers, or anyone needing to know the position of the Sun relative to Greenwich at a given moment.
+
+Notes:
 ------
-Questo programma in BASIC per SHARP PC calcola il GHA (Greenwich Hour Angle) e la declinazione del Sole per una data e ora specificate, utili per la navigazione astronomica.
-
-Funzionamento:
---------------
-1. L'utente inserisce anno (1980-2099), mese, giorno, ora e minuti (UT).
-2. Il programma calcola il Giorno Giuliano (JD) e la frazione di secolo (T) dal 1 gennaio 2000.
-3. Vengono calcolate le posizioni medie del Sole (longitudine, anomalia media, ecc.) e le correzioni per l'equazione del centro.
-4. Si determina la longitudine apparente del Sole, l'obliquità dell'eclittica e la posizione equatoriale (ascensione retta e declinazione).
-5. Viene calcolato il Greenwich Mean Sidereal Time (GMST) e quindi il GHA del Sole.
-6. Il programma stampa la data, l'ora UT, il GHA del Sole (in gradi, primi, secondi) e la declinazione (N/S, gradi, primi, secondi).
-7. L'utente può ripetere il calcolo per altri dati.
-
-Variabili principali:
---------------------
-- Y, M, D: anno, mese, giorno
-- H, N: ora e minuti UT
-- JD: giorno giuliano
-- T: secolo giuliano dal 2000
-- L0: longitudine media Sole
-- MA: anomalia media Sole
-- C: equazione del centro
-- TL: longitudine vera Sole
-- OM: longitudine nodo ascendente
-- LA: longitudine apparente Sole
-- EP: obliquità eclittica
-- RA: ascensione retta Sole
-- GM: tempo siderale medio di Greenwich
-- GH: GHA Sole
-- DEC: declinazione Sole
-
-Utilizzo tipico:
-----------------
-Il programma è pensato per navigatori, astrofili o chiunque abbia bisogno di conoscere la posizione del Sole rispetto a Greenwich in un dato momento.
-
-Note:
------
-- I calcoli sono approssimati ma sufficientemente accurati per la navigazione pratica.
-- Il programma richiede input manuale e fornisce output testuale.
-
+- The calculations are approximate but sufficiently accurate for practical navigation.
+- The program requires manual input and provides textual output.
