@@ -1,0 +1,35 @@
+Pocket-Quest Game for Sharp PC-1403
+(c) 2012-2022 by N. Haedecke 
+
+Here is a Sharp game I like to share here , thanks to Zumstein Patrick
+A tiny, little text adventure game witten in BASIC for the Sharp Pocket PC 1403.
+
+The game fits into the 6600 byte (!) of memory available on a Sharp PC 1403 (yes People , that's roughly 6.5 KB !)
+
+About the game:
+You find yourself in the distant world of 'Pocket Land', a small country that is suffering from the reign of an evil dragon which has stolen the 'sacred amulet' and sends monsters to terrorize the peasants.
+So you decide to take fate in your own hands and slay the evil dragon in order to restore peace to this little world. Find the sacred amulet and return it to the mayor in the townhall.
+
+Features:
+* 16 different locations
+* movable objects
+* very, very simplistic combat system using randomness
+* two word parser
+* 64 characters per room description (16 chacracters per line are being displayed to stay comaptible with PC1248 models)
+
+Game commands:
+The game parser recognizes the following commands:
+* N - go north
+* S - go south
+* E - go east
+* W - go west
+* TAKE <item> - pick up <item>
+* DROP <item> - put down up <item>
+* USE <item> - use / make use of <item>
+* INV - list items carried (inventory)
+* QUIT - exit game
+
+HINTS:
+* Weapons do not need to be 'used', their effect on enemies is autmatically applied in a fight.
+* To attack an enemy (again), you may either leave and re-enter a room or you can simply press <ENTER> (this will show a "Pardon?" message, but then a new turn begins).
+* There's one place in the game where you can recover your HPs. Get there when they run low.
