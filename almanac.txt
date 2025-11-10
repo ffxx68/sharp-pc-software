@@ -1,8 +1,14 @@
-                               ALMANAC.BAS
+ALMANAC.BAS
 ================================================================================
-                      SUN SIGHT REDUCTION PROGRAM
-                    FOR SHARP PC BASIC COMPUTERS
               Complete Celestial Navigation Calculator
+                    FOR SHARP PC BASIC COMPUTERS
+
+Inspired by:
+  - "Celestial Navigation for the Complete Idiot" by David Burch
+  - "Astronomical Algorithms" by Jean Meeus
+  - US Naval Observatory algorithms
+  - Nautical Almanac sight reduction methods
+  - https://www.icosaedro.it/celestial-navigation/celestial-navigation-it.html
 
 ================================================================================
                             PROGRAM DESCRIPTION
@@ -72,7 +78,7 @@ STEP 2: CORRECT SEXTANT READING
   
   Refraction:          -    1.6'
                        -----------
-  Ho (Observed):       32° 09.0' = 32d 09'
+  Ho (Observed):       32° 09.0' = 32d 9'
 
 STEP 3: RUN THE PROGRAM
   
@@ -84,31 +90,17 @@ STEP 3: RUN THE PROGRAM
     MINUTE: 15
     YOUR LATITUDE: 40
     YOUR LONGITUDE: -30
-    OBSERVED ALTITUDE Ho (DEG): 32
-    OBSERVED ALTITUDE Ho (MIN): 9
+    OBSERVED ALTITUDE (DEG): 32
+    OBSERVED ALTITUDE (MIN): 9
 
   Output:
-    ================================
-    DATE: 10/13/2018  09:15 UT
-    POS: 40deg -30deg
-    ================================
-    
     SUN GHA: 318d 45' 23"
-    SUN DEC: S 7d 32' 15"
-    
+    SUN DC: S 7d 32' 15"
     LHA: 348d 45'
-    
-    --------------------------------
-    SIGHT REDUCTION RESULTS:
-    --------------------------------
     Hc (COMPUTED): 32d 05' 23"
     Ho (OBSERVED): 32d 09'
-    
     INTERCEPT: 4' TOWARD
-    
     AZIMUTH: 120d 00' T
-    
-    PLOT LOP FROM YOUR POSITION:
     BEARING 120d FOR 4' TOWARD SUN
 
 STEP 4: PLOT ON CHART
@@ -152,31 +144,17 @@ STEP 4: RUN THE PROGRAM
     MINUTE: 30
     YOUR LATITUDE: 40
     YOUR LONGITUDE: -29.37  (29°22'W = -29.37)
-    OBSERVED ALTITUDE Ho (DEG): 28
-    OBSERVED ALTITUDE Ho (MIN): 35
+    OBSERVED ALTITUDE (DEG): 28
+    OBSERVED ALTITUDE (MIN): 35
 
   Output:
-    ================================
-    DATE: 10/13/2018  15:30 UT
-    POS: 40deg -29.37deg
-    ================================
-    
     SUN GHA: 52d 30' 15"
-    SUN DEC: S 7d 33' 10"
-    
+    SUN DC: S 7d 33' 10"
     LHA: 81d 52'
-    
-    --------------------------------
-    SIGHT REDUCTION RESULTS:
-    --------------------------------
     Hc (COMPUTED): 28d 38' 42"
     Ho (OBSERVED): 28d 35'
-    
     INTERCEPT: 3' AWAY
-    
     AZIMUTH: 225d 15' T
-    
-    PLOT LOP FROM YOUR POSITION:
     BEARING 225d FOR 3' AWAY FROM SUN
 
 STEP 5: PLOT RUNNING FIX
